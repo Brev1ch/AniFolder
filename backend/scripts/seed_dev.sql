@@ -4,8 +4,8 @@
 -- Создаёт: 500 тайтлов, 1000 пользователей (пароль у всех: password),
 -- ~39 000 записей в списках, отзывы, темы, комментарии, активность.
 -- Жанры (словарь переводов) создаёт сама миграция, сид их только использует.
--- Каталог синтетический: anilist_id начинаются с 900 000 000, чтобы не пересекаться
--- с реальными тайтлами из синхронизации.
+-- Каталог синтетический: anilist_id и mal_id начинаются с 900 000 000, чтобы не пересекаться
+-- с реальными тайтлами из синхронизации. У каждого 7-го тайтла mal_id = NULL, как бывает в AniList.
 -- Скрипт идемпотентен только на пустой БД; для перезаливки сначала TRUNCATE (см. конец файла).
 
 BEGIN;
@@ -13,8 +13,9 @@ BEGIN;
 SELECT setseed(0.42);  -- одинаковые данные при каждом запуске
 
 -- Тайтлы
-INSERT INTO anime (anilist_id, title_ru, title_en, kind, status, episodes, aired_on, description, poster_url)
+INSERT INTO anime (anilist_id, mal_id, title_ru, title_en, kind, status, episodes, aired_on, description, poster_url)
 SELECT 900000000 + g,
+       CASE WHEN g % 7 = 0 THEN NULL ELSE 900000000 + g END,
        'Тестовое аниме ' || g,
        'Test Anime ' || g,
        (ARRAY['tv','tv','tv','movie','ova','ona','special'])[1 + floor(random() * 7)::int],

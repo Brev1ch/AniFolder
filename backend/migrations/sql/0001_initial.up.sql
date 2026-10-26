@@ -71,6 +71,8 @@ CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens (user_id);
 CREATE TABLE anime (
     id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     anilist_id   bigint       NOT NULL UNIQUE,  -- id в AniList, ключ для upsert при синхронизации
+    mal_id       bigint       UNIQUE,           -- idMal из того же ответа AniList; NULL, если AniList его не знает.
+                                                -- Нужен ML: открытые датасеты оценок размечены по MAL id
     title_ru     varchar(512),                  -- в AniList русских названий нет: заполняется вручную или NULL
     title_en     varchar(512) NOT NULL,         -- title.english, а если его нет — title.romaji
     kind         varchar(16),                   -- format из AniList в нижнем регистре: tv, tv_short, movie, ova, ona, special, music

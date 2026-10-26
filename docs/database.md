@@ -54,6 +54,8 @@ psql postgresql://anifolder:anifolder@localhost:5432/anifolder -f tests/integrat
 
 **Catalog Sync Worker** (источник — AniList)
 - Тайтлы: upsert по `anime.anilist_id` (`ON CONFLICT (anilist_id) DO UPDATE`).
+- `mal_id` — поле `idMal` из того же запроса к AniList (в MyAnimeList не ходим). Если AniList его не знает — NULL.
+  Обновлять при каждой синхронизации: AniList может проставить `idMal` позже.
 - `title_en` — `title.english`, при его отсутствии `title.romaji`. Русских названий в AniList нет: `title_ru` оставлять NULL.
 - `kind` — `format` из AniList в нижнем регистре (`tv`, `tv_short`, `movie`, `ova`, `ona`, `special`, `music`), не ограничен.
 - Жанры: upsert по `name_en` (`ON CONFLICT (name_en) DO NOTHING`), `name_ru` не трогать.
@@ -70,6 +72,8 @@ psql postgresql://anifolder:anifolder@localhost:5432/anifolder -f tests/integrat
 
 **Recommendation Service**
 - Читает `user_anime (user_id, anime_id, status, score)`.
+- Для холодного старта сопоставляет открытые датасеты оценок MyAnimeList с каталогом по `anime.mal_id`
+  (уникальный индекс, поиск по нему быстрый). Тайтлы с `mal_id = NULL` в такие датасеты не попадут.
 - Пишет в `recommendations`: удалить старые строки пользователя и вставить новые в одной транзакции;
   `model_version` — версия модели. Выдача: `ORDER BY relevance DESC LIMIT n` по индексу.
 - Сейчас там заглушки `model_version = 'seed-popular'`.

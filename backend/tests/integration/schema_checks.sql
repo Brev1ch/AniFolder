@@ -52,6 +52,15 @@ SELECT pg_temp.expect_error(
 SELECT pg_temp.expect_error(
     $q$INSERT INTO anime (anilist_id, title_en, status) VALUES (-2, 'Raw status', 'RELEASING')$q$,
     '23514', 'статусы AniList как есть не принимаются, только наши');
+SELECT pg_temp.expect_error(
+    $q$INSERT INTO anime (anilist_id, mal_id, title_en, status) VALUES (-3, -100, 'A', 'released'), (-4, -100, 'B', 'released')$q$,
+    '23505', 'mal_id уникален');
+DO $$ BEGIN
+    -- тайтлы без idMal не конфликтуют друг с другом
+    INSERT INTO anime (anilist_id, title_en, status) VALUES (-10, 'No MAL 1', 'ongoing'), (-11, 'No MAL 2', 'hiatus');
+    ASSERT (SELECT count(*) FROM anime WHERE anilist_id IN (-10, -11) AND mal_id IS NULL) = 2;
+    RAISE NOTICE 'ok: несколько тайтлов без mal_id';
+END $$;
 DO $$ BEGIN
     -- upsert жанра по name_en не затирает перевод
     INSERT INTO genres (name_en) VALUES ('Action') ON CONFLICT (name_en) DO NOTHING;

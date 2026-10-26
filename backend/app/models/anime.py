@@ -45,6 +45,9 @@ class Anime(Base):
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     # id в AniList — ключ для upsert при синхронизации
     anilist_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    # idMal из того же ответа AniList (в MAL не ходим); NULL, если AniList его не знает.
+    # По нему ML сопоставляет каталог с открытыми датасетами оценок MyAnimeList.
+    mal_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
     # В AniList русских названий нет: заполняется вручную или NULL
     title_ru: Mapped[str | None] = mapped_column(String(512))
     # title.english, а если его нет — title.romaji
