@@ -1,0 +1,28 @@
+# Локальная инфраструктура для разработки: PostgreSQL и Redis.
+# Запуск: docker compose -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: anifolder
+      POSTGRES_PASSWORD: anifolder
+      POSTGRES_DB: anifolder
+      # локаль с поддержкой кириллицы для сортировки и lower()
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anifolder -d anifolder"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
