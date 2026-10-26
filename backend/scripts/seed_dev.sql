@@ -1,46 +1,25 @@
 -- Тестовые данные для локальной разработки. НЕ запускать на проде.
 -- Запуск: psql "$DATABASE_URL_SYNC" -v ON_ERROR_STOP=1 -f backend/scripts/seed_dev.sql
 --
--- Создаёт: 20 жанров, 500 тайтлов, 1000 пользователей (пароль у всех: password),
--- ~40 000 записей в списках, отзывы, темы, комментарии, активность.
--- Каталог синтетический: shikimori_id начинаются с 900 000 000,
--- чтобы не пересекаться с реальными тайтлами из синхронизации.
+-- Создаёт: 500 тайтлов, 1000 пользователей (пароль у всех: password),
+-- ~37 000 записей в списках, отзывы, темы, комментарии, активность.
+-- Жанры (словарь переводов) создаёт сама миграция, сид их только использует.
+-- Каталог синтетический: внешние id начинаются с 900 000 000, чтобы не пересекаться
+-- с реальными тайтлами из синхронизации. У каждого 7-го тайтла нет mal_id — как у части тайтлов AniList.
 -- Скрипт идемпотентен только на пустой БД; для перезаливки сначала TRUNCATE (см. конец файла).
 
 BEGIN;
 
 SELECT setseed(0.42);  -- одинаковые данные при каждом запуске
 
--- Жанры: id как в Shikimori
-INSERT INTO genres (id, name_ru, name_en) VALUES
-    (1,  'Экшен',            'Action'),
-    (2,  'Приключения',      'Adventure'),
-    (4,  'Комедия',          'Comedy'),
-    (8,  'Драма',            'Drama'),
-    (10, 'Фэнтези',          'Fantasy'),
-    (7,  'Детектив',         'Mystery'),
-    (22, 'Романтика',        'Romance'),
-    (24, 'Фантастика',       'Sci-Fi'),
-    (36, 'Повседневность',   'Slice of Life'),
-    (30, 'Спорт',            'Sports'),
-    (37, 'Сверхъестественное','Supernatural'),
-    (41, 'Триллер',          'Suspense'),
-    (14, 'Ужасы',            'Horror'),
-    (18, 'Меха',             'Mecha'),
-    (19, 'Музыка',           'Music'),
-    (23, 'Школа',            'School'),
-    (27, 'Сёнен',            'Shounen'),
-    (25, 'Сёдзё',            'Shoujo'),
-    (42, 'Сэйнэн',           'Seinen'),
-    (40, 'Психологическое',  'Psychological');
-
 -- Тайтлы
-INSERT INTO anime (shikimori_id, title_ru, title_en, kind, status, episodes, aired_on, description, poster_url)
-SELECT 900000000 + g,
+INSERT INTO anime (mal_id, anilist_id, title_ru, title_en, kind, status, episodes, aired_on, description, poster_url)
+SELECT CASE WHEN g % 7 = 0 THEN NULL ELSE 900000000 + g END,
+       900000000 + g,
        'Тестовое аниме ' || g,
        'Test Anime ' || g,
        (ARRAY['tv','tv','tv','movie','ova','ona','special'])[1 + floor(random() * 7)::int],
-       CASE WHEN g % 25 = 0 THEN 'anons' WHEN g % 10 = 0 THEN 'ongoing' ELSE 'released' END,
+       CASE WHEN g % 25 = 0 THEN 'announced' WHEN g % 10 = 0 THEN 'ongoing' ELSE 'released' END,
        CASE WHEN g % 25 = 0 THEN NULL ELSE (ARRAY[1,12,13,24,25,26,50])[1 + floor(random() * 7)::int] END,
        date '1995-01-01' + floor(random() * 11000)::int,
        'Описание тестового тайтла №' || g || '.',
@@ -165,4 +144,5 @@ COMMIT;
 ANALYZE;
 
 -- Перезаливка:
--- TRUNCATE users, anime, genres, anime_stats_dirty RESTART IDENTITY CASCADE;
+-- (genres не очищаем: это словарь переводов из миграции)
+-- TRUNCATE users, anime, anime_stats_dirty RESTART IDENTITY CASCADE;

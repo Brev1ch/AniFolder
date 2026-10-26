@@ -21,16 +21,19 @@ anime_genres = Table(
 class Genre(Base):
     __tablename__ = "genres"
 
-    # id совпадает с id жанра в Shikimori — синхронизация делает upsert по PK
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    name_ru: Mapped[str] = mapped_column(String(64))
+    id: Mapped[int] = mapped_column(Integer, Identity(always=True), primary_key=True)
+    # Естественный ключ: английские названия жанров в MAL и AniList совпадают.
+    # Синхронизация делает upsert по name_en и не трогает name_ru.
     name_en: Mapped[str] = mapped_column(String(64), unique=True)
+    # NULL, пока перевода нет — показывать name_en
+    name_ru: Mapped[str | None] = mapped_column(String(64))
 
 
 class Anime(Base):
     __tablename__ = "anime"
     __table_args__ = (
-        CheckConstraint("status IN ('anons', 'ongoing', 'released')", name="status_valid"),
+        CheckConstraint("mal_id IS NOT NULL OR anilist_id IS NOT NULL", name="external_id_present"),
+        CheckConstraint("status IN ('announced', 'ongoing', 'released', 'hiatus', 'cancelled')", name="status_valid"),
         CheckConstraint("episodes >= 0", name="episodes_nonneg"),
         # Нечёткий поиск: title_ru ILIKE '%...%' или title_ru % 'запрос' (оператор pg_trgm)
         Index("anime_title_ru_trgm_idx", "title_ru", postgresql_using="gin",
@@ -41,7 +44,11 @@ class Anime(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
-    shikimori_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    # Внешние id: хотя бы один задан. mal_id нужен ML (датасеты размечены по MAL id);
+    # у части тайтлов AniList его нет, поэтому поле необязательное.
+    mal_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    anilist_id: Mapped[int | None] = mapped_column(BigInteger, unique=True)
+    # В MAL и AniList русских названий нет
     title_ru: Mapped[str | None] = mapped_column(String(512))
     title_en: Mapped[str] = mapped_column(String(512))
     kind: Mapped[str | None] = mapped_column(String(16))

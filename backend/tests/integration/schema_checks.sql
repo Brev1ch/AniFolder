@@ -10,12 +10,12 @@ BEGIN;
 INSERT INTO users (username, email, password_hash) VALUES
     ('check_alice', 'alice@check.test', 'x'),
     ('check_bob',   'bob@check.test',   'x');
-INSERT INTO anime (shikimori_id, title_en, status, episodes) VALUES (-1, 'Check Anime', 'released', 12);
+INSERT INTO anime (mal_id, title_en, status, episodes) VALUES (-1, 'Check Anime', 'released', 12);
 
 CREATE TEMP TABLE ids ON COMMIT DROP AS
 SELECT (SELECT id FROM users WHERE username = 'check_alice') AS alice,
        (SELECT id FROM users WHERE username = 'check_bob')   AS bob,
-       (SELECT id FROM anime WHERE shikimori_id = -1)        AS anime;
+       (SELECT id FROM anime WHERE mal_id = -1)              AS anime;
 
 -- Хелпер: выполняет SQL и проверяет, что он упал с нужным SQLSTATE
 CREATE FUNCTION pg_temp.expect_error(sql text, state text, label text) RETURNS void
@@ -41,6 +41,28 @@ SELECT pg_temp.expect_error(
 SELECT pg_temp.expect_error(
     $q$INSERT INTO users (username, email, password_hash) VALUES ('bad name!', 'b@check.test', 'x')$q$,
     '23514', 'формат username');
+
+-- 1а. Каталог: внешние id, статусы, жанры
+SELECT pg_temp.expect_error(
+    $q$INSERT INTO anime (title_en, status) VALUES ('No ids', 'released')$q$,
+    '23514', 'у тайтла есть хотя бы один внешний id');
+SELECT pg_temp.expect_error(
+    $q$INSERT INTO anime (mal_id, title_en, status) VALUES (-1, 'Dup', 'released')$q$,
+    '23505', 'mal_id уникален');
+SELECT pg_temp.expect_error(
+    $q$INSERT INTO anime (mal_id, title_en, status) VALUES (-2, 'Old status', 'anons')$q$,
+    '23514', 'статусы источника не принимаются, только наши');
+DO $$ BEGIN
+    -- два тайтла AniList без mal_id не конфликтуют друг с другом
+    INSERT INTO anime (anilist_id, title_en, status) VALUES (-10, 'AniList only 1', 'ongoing'), (-11, 'AniList only 2', 'hiatus');
+    ASSERT (SELECT count(*) FROM anime WHERE anilist_id IN (-10, -11) AND mal_id IS NULL) = 2;
+    -- upsert жанра по name_en не затирает перевод
+    INSERT INTO genres (name_en) VALUES ('Action') ON CONFLICT (name_en) DO NOTHING;
+    INSERT INTO genres (name_en) VALUES ('Check New Genre');
+    ASSERT (SELECT name_ru FROM genres WHERE name_en = 'Action') = 'Экшен', 'перевод жанра на месте';
+    ASSERT (SELECT name_ru FROM genres WHERE name_en = 'Check New Genre') IS NULL, 'новый жанр без перевода';
+    RAISE NOTICE 'ok: тайтлы без mal_id и upsert жанров';
+END $$;
 
 -- 2. Оценки в диапазоне 1..10
 SELECT pg_temp.expect_error(

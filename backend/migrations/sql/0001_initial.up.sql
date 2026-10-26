@@ -65,34 +65,70 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens (user_id);
 
 -- ===================================================================
--- Каталог (заполняется Catalog Sync Worker из Shikimori)
+-- Каталог (заполняется Catalog Sync Worker из внешнего источника: MyAnimeList или AniList)
 -- ===================================================================
 
+-- Внешние id хранятся отдельно, чтобы схема подходила под любой из двух источников:
+--   mal_id     — id в MyAnimeList; по нему размечены открытые датасеты, его использует ML;
+--   anilist_id — id в AniList.
+-- В AniList поле idMal необязательное, поэтому mal_id может быть NULL.
+-- Хотя бы один id есть всегда; upsert идёт по id того источника, из которого импортируем.
 CREATE TABLE anime (
     id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    shikimori_id bigint       NOT NULL UNIQUE,  -- ключ для upsert при синхронизации
-    title_ru     varchar(512),
-    title_en     varchar(512) NOT NULL,
-    kind         varchar(16),                   -- tv, movie, ova, ona, special, ... (как в Shikimori)
-    status       varchar(16)  NOT NULL,
+    mal_id       bigint       UNIQUE,
+    anilist_id   bigint       UNIQUE,
+    title_ru     varchar(512),                  -- в MAL и AniList русских названий нет: заполняется вручную или NULL
+    title_en     varchar(512) NOT NULL,         -- английское название, а если его нет — romaji
+    kind         varchar(16),                   -- tv, movie, ova, ona, special, music, ... (в нижнем регистре)
+    status       varchar(16)  NOT NULL,         -- наши значения, не источника; соответствие — в docs/database.md
     episodes     integer,                       -- NULL, пока число эпизодов неизвестно
     aired_on     date,
     description  text,
     poster_url   varchar(512),
     synced_at    timestamptz  NOT NULL DEFAULT now(),
-    CONSTRAINT anime_status_valid    CHECK (status IN ('anons', 'ongoing', 'released')),
-    CONSTRAINT anime_episodes_nonneg CHECK (episodes >= 0)
+    CONSTRAINT anime_external_id_present CHECK (mal_id IS NOT NULL OR anilist_id IS NOT NULL),
+    CONSTRAINT anime_status_valid        CHECK (status IN ('announced', 'ongoing', 'released', 'hiatus', 'cancelled')),
+    CONSTRAINT anime_episodes_nonneg     CHECK (episodes >= 0)
 );
 CREATE INDEX anime_title_ru_trgm_idx ON anime USING gin (title_ru gin_trgm_ops);
 CREATE INDEX anime_title_en_trgm_idx ON anime USING gin (title_en gin_trgm_ops);
 CREATE INDEX anime_kind_aired_on_idx ON anime (kind, aired_on);
 
--- id жанра = id жанра в Shikimori, поэтому синхронизация делает простой upsert по PK
+-- id жанра — наш собственный. В AniList жанры приходят строками без id, в MAL — с id и названием,
+-- и английские названия у них совпадают. Поэтому естественный ключ — name_en,
+-- синхронизация делает upsert по нему и не трогает name_ru.
 CREATE TABLE genres (
-    id      integer PRIMARY KEY,
-    name_ru varchar(64) NOT NULL,
-    name_en varchar(64) NOT NULL UNIQUE
+    id      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name_en varchar(64) NOT NULL UNIQUE,
+    name_ru varchar(64)                    -- NULL, пока перевода нет: фронтенд показывает name_en
 );
+
+-- Словарь переводов для известных жанров (общие для MAL и AniList + основные из MAL).
+-- Жанры, которых тут нет, синхронизация добавит сама с name_ru = NULL.
+INSERT INTO genres (name_en, name_ru) VALUES
+    ('Action', 'Экшен'),             ('Adventure', 'Приключения'),
+    ('Comedy', 'Комедия'),           ('Drama', 'Драма'),
+    ('Ecchi', 'Этти'),               ('Fantasy', 'Фэнтези'),
+    ('Horror', 'Ужасы'),             ('Mahou Shoujo', 'Махо-сёдзё'),
+    ('Mecha', 'Меха'),               ('Music', 'Музыка'),
+    ('Mystery', 'Детектив'),         ('Psychological', 'Психологическое'),
+    ('Romance', 'Романтика'),        ('Sci-Fi', 'Фантастика'),
+    ('Slice of Life', 'Повседневность'), ('Sports', 'Спорт'),
+    ('Supernatural', 'Сверхъестественное'), ('Thriller', 'Триллер'),
+    ('Suspense', 'Саспенс'),         ('Avant Garde', 'Авангард'),
+    ('Award Winning', 'Отмеченное наградами'), ('Boys Love', 'Сёнен-ай'),
+    ('Girls Love', 'Сёдзё-ай'),      ('Gourmet', 'Гурман'),
+    ('Shounen', 'Сёнен'),            ('Shoujo', 'Сёдзё'),
+    ('Seinen', 'Сэйнэн'),            ('Josei', 'Дзёсэй'),
+    ('Kids', 'Детское'),             ('School', 'Школа'),
+    ('Isekai', 'Исекай'),            ('Historical', 'Исторический'),
+    ('Military', 'Военное'),         ('Martial Arts', 'Боевые искусства'),
+    ('Super Power', 'Суперсила'),    ('Space', 'Космос'),
+    ('Vampire', 'Вампиры'),          ('Harem', 'Гарем'),
+    ('Parody', 'Пародия'),           ('Samurai', 'Самураи'),
+    ('Mythology', 'Мифология'),      ('Detective', 'Детективное расследование'),
+    ('Idols (Female)', 'Айдолы (девушки)'), ('Idols (Male)', 'Айдолы (парни)'),
+    ('Time Travel', 'Путешествия во времени'), ('Video Game', 'Видеоигры');
 
 CREATE TABLE anime_genres (
     anime_id bigint  NOT NULL REFERENCES anime (id) ON DELETE CASCADE,

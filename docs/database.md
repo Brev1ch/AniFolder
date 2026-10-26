@@ -16,7 +16,7 @@ psql postgresql://anifolder:anifolder@localhost:5432/anifolder -f tests/integrat
 ```
 
 Тестовые данные: 1000 пользователей (`user1` … `user1000`, пароль `password`), 500 синтетических тайтлов,
-~58 000 записей в списках, отзывы, темы, комментарии, заглушки рекомендаций.
+~37 000 записей в списках, отзывы, темы, комментарии, заглушки рекомендаций.
 
 ## Где что лежит
 
@@ -52,12 +52,27 @@ psql postgresql://anifolder:anifolder@localhost:5432/anifolder -f tests/integrat
 - При удалении пользователя его списки, отзывы, активность, токены и рекомендации удаляются,
   а темы и комментарии остаются с `author_id = NULL`.
 
-**Catalog Sync Worker**
-- Тайтлы: upsert по `anime.shikimori_id`. Жанры: `genres.id` = id жанра в Shikimori, upsert по PK.
-- `anime.status` — только `anons` / `ongoing` / `released` (как в Shikimori); `kind` не ограничен.
+**Catalog Sync Worker** (источник — MyAnimeList или AniList)
+- Тайтлы: upsert по id источника — `ON CONFLICT (mal_id)` для MAL или `ON CONFLICT (anilist_id)` для AniList.
+  Из AniList сохранять и `idMal` в `mal_id`, если он есть: по нему работает ML.
+  CHECK требует, чтобы хотя бы один внешний id был задан.
+- `title_en` — английское название, при его отсутствии romaji. `title_ru` источники не дают: оставлять NULL.
+- `kind` — тип в нижнем регистре (`tv`, `movie`, `ova`, `ona`, `special`, `music`, ...), не ограничен.
+- Жанры: upsert по `name_en` (`ON CONFLICT (name_en) DO NOTHING`), `name_ru` не трогать.
+  Переводы известных жанров миграция кладёт сама; новые жанры появятся с `name_ru = NULL`.
+- `anime.status` хранит наши значения — источник нужно перевести:
+
+| `anime.status` | MyAnimeList | AniList |
+|---|---|---|
+| `announced` | `not_yet_aired` | `NOT_YET_RELEASED` |
+| `ongoing` | `currently_airing` | `RELEASING` |
+| `released` | `finished_airing` | `FINISHED` |
+| `hiatus` | — | `HIATUS` |
+| `cancelled` | — | `CANCELLED` |
 
 **Recommendation Service**
-- Читает `user_anime (user_id, anime_id, status, score)`.
+- Читает `user_anime (user_id, anime_id, status, score)`. Сопоставить наши тайтлы с открытыми
+  датасетами можно через `anime.mal_id` (у части тайтлов из AniList он NULL).
 - Пишет в `recommendations`: удалить старые строки пользователя и вставить новые в одной транзакции;
   `model_version` — версия модели. Выдача: `ORDER BY relevance DESC LIMIT n` по индексу.
 - Сейчас там заглушки `model_version = 'seed-popular'`.
