@@ -1,0 +1,24 @@
+BEGIN
+ setseed
+---------
+
+(1 row)
+
+INSERT 0 500
+INSERT 0 978
+INSERT 0 1000
+INSERT 0 39435
+UPDATE 39435
+INSERT 0 584
+INSERT 0 80
+INSERT 0 1020
+INSERT 0 138
+INSERT 0 11799
+INSERT 0 20000
+ anime_stats_refreshed
+-----------------------
+                   500
+(1 row)
+
+COMMIT
+ANALYZE

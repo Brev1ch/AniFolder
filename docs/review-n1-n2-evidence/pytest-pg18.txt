@@ -1,0 +1,201 @@
+Publication note: two equal test access JWT values were replaced with the same marker; test results are unchanged.
+
+/tmp/anifolder-review-venv/lib/python3.14/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+................F...........F..........FF.                               [100%]
+=================================== FAILURES ===================================
+_____________________________ test_refresh_success _____________________________
+
+api = ApiTestContext(client=<httpx.AsyncClient object at 0x7d44450fd310>, session=<sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d44450fdfd0>, app=<fastapi.applications.FastAPI object at 0x7d4445358ec0>)
+
+    async def test_refresh_success(api: ApiTestContext) -> None:
+        data = await _register(api)
+        response = await api.client.post(REFRESH_URL, json={"refresh_token": data["refresh_token"]})
+        assert response.status_code == 200
+
+        new_data = response.json()
+>       assert new_data["access_token"] != data["access_token"]
+E       AssertionError: assert '[REDACTED_TEST_ACCESS_JWT]' != '[REDACTED_TEST_ACCESS_JWT]'
+
+tests/unit/test_auth.py:154: AssertionError
+__________________________ test_anime_list_pagination __________________________
+
+api = ApiTestContext(client=<httpx.AsyncClient object at 0x7d444507fe90>, session=<sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d4444fc5ef0>, app=<fastapi.applications.FastAPI object at 0x7d444538b380>)
+
+    async def test_anime_list_pagination(api: ApiTestContext) -> None:
+        _, titles = await _seed_catalog(api)
+        response = await api.client.get(ANIME_URL, params={"page": 2, "limit": 2, "sort": "title"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 5
+        assert data["page"] == 2
+        assert data["limit"] == 2
+        assert len(data["items"]) == 2
+        # title-сортировка по title_en
+>       assert [i["title_en"] for i in data["items"]] == ["Naruto", "Naruto Movie"]
+E       AssertionError: assert ['Naruto Movi...n Hold Title'] == ['Naruto', 'Naruto Movie']
+E
+E         At index 0 diff: 'Naruto Movie' != 'Naruto'
+E         Use -v to get more diff
+
+tests/unit/test_catalog.py:78: AssertionError
+_____________________ test_apply_batch_inserts_with_genres _____________________
+
+api = ApiTestContext(client=<httpx.AsyncClient object at 0x7d44450ffc50>, session=<sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d4444d6f540>, app=<fastapi.applications.FastAPI object at 0x7d4444ed27b0>)
+
+    async def test_apply_batch_inserts_with_genres(api: ApiTestContext) -> None:
+>       count = await apply_media_batch(api.session, [_media(1), _media(2, genres=[])])
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_catalog_sync.py:82:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d4444d6f540>
+medias = [{'id': 1, 'idMal': 1001, 'format': 'TV', 'status': 'FINISHED', ...}, {'id': 2, 'idMal': 1002, 'format': 'TV', 'status': 'FINISHED', ...}]
+
+    async def apply_media_batch(session: AsyncSession, medias: list[dict[str, Any]]) -> int:
+        """Применяет страницу AniList к БД: upsert тайтлов, жанров и связей. Возвращает число тайтлов."""
+        rows = [r for r in (map_media(m) for m in medias) if r is not None]
+        if not rows:
+            return 0
+
+        genre_names = {g for r in rows for g in r["_genres"]}
+        if genre_names:
+            await session.execute(
+                pg_insert(Genre).values([{"name_en": n} for n in sorted(genre_names)]).on_conflict_do_nothing(
+                    index_elements=["name_en"]
+                )
+            )
+            genre_ids = dict(
+                (await session.execute(select(Genre.name_en, Genre.id).where(Genre.name_en.in_(genre_names)))).all()
+            )
+        else:
+            genre_ids = {}
+
+        stmt = (
+            pg_insert(Anime)
+            .values([{k: v for k, v in r.items() if not k.startswith("_")} for r in rows])
+            .on_conflict_do_update(
+                index_elements=["anilist_id"],
+                set_={
+                    "mal_id": pg_insert(Anime).excluded.mal_id,
+                    "title_en": pg_insert(Anime).excluded.title_en,
+                    "kind": pg_insert(Anime).excluded.kind,
+                    "status": pg_insert(Anime).excluded.status,
+                    "episodes": pg_insert(Anime).excluded.episodes,
+                    "aired_on": pg_insert(Anime).excluded.aired_on,
+                    "description": pg_insert(Anime).excluded.description,
+                    "poster_url": pg_insert(Anime).excluded.poster_url,
+                    "synced_at": func.now(),
+                },
+            )
+            .returning(Anime.id, Anime.anilist_id)
+        )
+        anime_ids = dict((await session.execute(stmt)).all())
+
+        # Связи жанров — полный снимок из AniList: заменяем старый набор новым
+        await session.execute(
+            anime_genres.delete().where(anime_genres.c.anime_id.in_(anime_ids.values()))
+        )
+        links = [
+>           {"anime_id": anime_ids[r["anilist_id"]], "genre_id": genre_ids[g]}
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+            for r in rows
+            for g in r["_genres"]
+            if g in genre_ids
+        ]
+E       KeyError: 1
+
+app/workers/catalog_sync.py:153: KeyError
+__________ test_apply_batch_upsert_keeps_title_ru_and_replaces_genres __________
+
+api = ApiTestContext(client=<httpx.AsyncClient object at 0x7d4444df0890>, session=<sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d4444ddff50>, app=<fastapi.applications.FastAPI object at 0x7d4444ed34d0>)
+
+    async def test_apply_batch_upsert_keeps_title_ru_and_replaces_genres(api: ApiTestContext) -> None:
+>       await apply_media_batch(api.session, [_media(1)])
+
+tests/unit/test_catalog_sync.py:108:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7d4444ddff50>
+medias = [{'id': 1, 'idMal': 1001, 'format': 'TV', 'status': 'FINISHED', ...}]
+
+    async def apply_media_batch(session: AsyncSession, medias: list[dict[str, Any]]) -> int:
+        """Применяет страницу AniList к БД: upsert тайтлов, жанров и связей. Возвращает число тайтлов."""
+        rows = [r for r in (map_media(m) for m in medias) if r is not None]
+        if not rows:
+            return 0
+
+        genre_names = {g for r in rows for g in r["_genres"]}
+        if genre_names:
+            await session.execute(
+                pg_insert(Genre).values([{"name_en": n} for n in sorted(genre_names)]).on_conflict_do_nothing(
+                    index_elements=["name_en"]
+                )
+            )
+            genre_ids = dict(
+                (await session.execute(select(Genre.name_en, Genre.id).where(Genre.name_en.in_(genre_names)))).all()
+            )
+        else:
+            genre_ids = {}
+
+        stmt = (
+            pg_insert(Anime)
+            .values([{k: v for k, v in r.items() if not k.startswith("_")} for r in rows])
+            .on_conflict_do_update(
+                index_elements=["anilist_id"],
+                set_={
+                    "mal_id": pg_insert(Anime).excluded.mal_id,
+                    "title_en": pg_insert(Anime).excluded.title_en,
+                    "kind": pg_insert(Anime).excluded.kind,
+                    "status": pg_insert(Anime).excluded.status,
+                    "episodes": pg_insert(Anime).excluded.episodes,
+                    "aired_on": pg_insert(Anime).excluded.aired_on,
+                    "description": pg_insert(Anime).excluded.description,
+                    "poster_url": pg_insert(Anime).excluded.poster_url,
+                    "synced_at": func.now(),
+                },
+            )
+            .returning(Anime.id, Anime.anilist_id)
+        )
+        anime_ids = dict((await session.execute(stmt)).all())
+
+        # Связи жанров — полный снимок из AniList: заменяем старый набор новым
+        await session.execute(
+            anime_genres.delete().where(anime_genres.c.anime_id.in_(anime_ids.values()))
+        )
+        links = [
+>           {"anime_id": anime_ids[r["anilist_id"]], "genre_id": genre_ids[g]}
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+            for r in rows
+            for g in r["_genres"]
+            if g in genre_ids
+        ]
+E       KeyError: 1
+
+app/workers/catalog_sync.py:153: KeyError
+=============================== warnings summary ===============================
+tests/unit/test_auth.py::test_register_success
+  /tmp/anifolder-review-venv/lib/python3.14/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+tests/unit/test_auth.py::test_register_invalid_username[ab]
+tests/unit/test_auth.py::test_register_invalid_username[\u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0446\u0430]
+tests/unit/test_auth.py::test_register_invalid_username[bad name]
+tests/unit/test_auth.py::test_register_invalid_username[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+tests/unit/test_auth.py::test_register_invalid_username[-bad]
+tests/unit/test_auth.py::test_register_short_password
+tests/unit/test_auth.py::test_register_password_length_boundary[73-422]
+tests/unit/test_catalog.py::test_anime_list_limit_validation
+  /tmp/anifolder-review-venv/lib/python3.14/site-packages/starlette/_exception_handler.py:59: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    response = await handler(conn, exc)  # type: ignore[arg-type]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/unit/test_auth.py::test_refresh_success - AssertionError: assert...
+FAILED tests/unit/test_catalog.py::test_anime_list_pagination - AssertionErro...
+FAILED tests/unit/test_catalog_sync.py::test_apply_batch_inserts_with_genres
+FAILED tests/unit/test_catalog_sync.py::test_apply_batch_upsert_keeps_title_ru_and_replaces_genres
+4 failed, 38 passed, 9 warnings in 6.66s

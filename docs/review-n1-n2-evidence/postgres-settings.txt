@@ -1,0 +1,14 @@
+           server_version
+-------------------------------------
+ 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+(1 row)
+
+ random_page_cost
+------------------
+ 4
+(1 row)
+
+ enable_seqscan
+----------------
+ on
+(1 row)

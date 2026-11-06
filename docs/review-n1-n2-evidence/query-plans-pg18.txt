@@ -1,0 +1,164 @@
+=== 1. Список каталога, сортировка popular (join anime_stats) ===
+Ожидание: Seq Scan + Sort — индекса по in_lists_count нет. На 20k тайтлов дёшево,
+но глубокие OFFSET будут дорожать. Если план неудобен — обсудим индекс.
+                                                             QUERY PLAN
+-------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=47.88..47.93 rows=20 width=593) (actual time=0.276..0.278 rows=20.00 loops=1)
+   Buffers: shared hit=23
+   ->  Sort  (cost=47.88..49.13 rows=500 width=593) (actual time=0.275..0.276 rows=20.00 loops=1)
+         Sort Key: (COALESCE(anime_stats.in_lists_count, 0)) DESC, anime.id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=23
+         ->  Hash Left Join  (cost=15.25..34.57 rows=500 width=593) (actual time=0.084..0.179 rows=500.00 loops=1)
+               Hash Cond: (anime.id = anime_stats.anime_id)
+               Buffers: shared hit=17
+               ->  Seq Scan on anime  (cost=0.00..18.00 rows=500 width=589) (actual time=0.005..0.039 rows=500.00 loops=1)
+                     Buffers: shared hit=13
+               ->  Hash  (cost=9.00..9.00 rows=500 width=12) (actual time=0.070..0.070 rows=500.00 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 32kB
+                     Buffers: shared hit=4
+                     ->  Seq Scan on anime_stats  (cost=0.00..9.00 rows=500 width=12) (actual time=0.004..0.029 rows=500.00 loops=1)
+                           Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=250
+ Planning Time: 0.461 ms
+ Execution Time: 0.315 ms
+(20 rows)
+
+=== 2. Поиск по названию (pg_trgm) + сортировка по релевантности ===
+Ожидание: Bitmap Index Scan по anime_title_en_trgm_idx (title_ru NULL у большинства).
+                                                                             QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=20.74..20.77 rows=10 width=57) (actual time=0.358..0.359 rows=11.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=20.74..20.77 rows=10 width=57) (actual time=0.358..0.358 rows=11.00 loops=1)
+         Sort Key: (COALESCE(GREATEST(similarity((title_ru)::text, 'Test Anime 7'::text), similarity((title_en)::text, 'Test Anime 7'::text)), '0'::real)) DESC, id
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=16
+         ->  Seq Scan on anime  (cost=0.00..20.57 rows=10 width=57) (actual time=0.019..0.350 rows=11.00 loops=1)
+               Filter: (((title_ru)::text ~~* '%Test Anime 7%'::text) OR ((title_en)::text ~~* '%Test Anime 7%'::text))
+               Rows Removed by Filter: 489
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=26
+ Planning Time: 0.385 ms
+ Execution Time: 0.378 ms
+(14 rows)
+
+=== 3. Count для пагинации при том же поиске ===
+                                                  QUERY PLAN
+--------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=21.75..21.76 rows=1 width=8) (actual time=0.342..0.342 rows=1.00 loops=1)
+   Buffers: shared hit=13
+   ->  Seq Scan on anime  (cost=0.00..20.50 rows=500 width=0) (actual time=0.005..0.324 rows=500.00 loops=1)
+         Filter: (((title_ru)::text ~~* '%Test Anime%'::text) OR ((title_en)::text ~~* '%Test Anime%'::text))
+         Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.097 ms
+ Execution Time: 0.349 ms
+(9 rows)
+
+=== 4. Фильтры: status + kind + жанр (EXISTS по anime_genres) ===
+Ожидание: anime_genres — Index Scan по PK (anime_id, genre_id).
+По status/kind индексов нет: оцени цену Bitmap Index Scan по anime_kind_aired_on_idx
+в варианте с kind впереди; при seq scan на 20k строк — тоже приемлемо, зафиксируем вывод.
+                                                                          QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=33.35..33.40 rows=19 width=22) (actual time=0.147..0.150 rows=19.00 loops=1)
+   Buffers: shared hit=21
+   ->  Sort  (cost=33.35..33.40 rows=19 width=22) (actual time=0.146..0.148 rows=19.00 loops=1)
+         Sort Key: anime.id
+         Sort Method: quicksort  Memory: 26kB
+         Buffers: shared hit=21
+         ->  Hash Join  (cost=11.98..32.95 rows=19 width=22) (actual time=0.035..0.091 rows=19.00 loops=1)
+               Hash Cond: (anime.id = anime_genres.anime_id)
+               Buffers: shared hit=21
+               ->  Seq Scan on anime  (cost=0.00..20.50 rows=180 width=22) (actual time=0.004..0.050 rows=183.00 loops=1)
+                     Filter: (((status)::text = 'released'::text) AND ((kind)::text = 'tv'::text))
+                     Rows Removed by Filter: 317
+                     Buffers: shared hit=13
+               ->  Hash  (cost=11.33..11.33 rows=52 width=8) (actual time=0.026..0.026 rows=52.00 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                     Buffers: shared hit=8
+                     ->  Bitmap Heap Scan on anime_genres  (cost=4.68..11.33 rows=52 width=8) (actual time=0.013..0.020 rows=52.00 loops=1)
+                           Recheck Cond: (genre_id = 1)
+                           Heap Blocks: exact=6
+                           Buffers: shared hit=8
+                           ->  Bitmap Index Scan on anime_genres_genre_id_idx  (cost=0.00..4.67 rows=52 width=0) (actual time=0.007..0.007 rows=52.00 loops=1)
+                                 Index Cond: (genre_id = 1)
+                                 Index Searches: 1
+                                 Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=76
+ Planning Time: 0.219 ms
+ Execution Time: 0.163 ms
+(28 rows)
+
+=== 5. Фильтр по годам: date_part над aired_on ===
+Известное ограничение: вычисление над колонке, индекс anime_kind_aired_on_idx не работает.
+Если план плохой — обсудим: либо range по aired_on (поддержать в коде),
+либо expression-индекс (тогда миграция — к Никите).
+                                                                                                        QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=25.51..25.52 rows=2 width=26) (actual time=0.092..0.094 rows=20.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=25.51..25.52 rows=2 width=26) (actual time=0.091..0.092 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=16
+         ->  Seq Scan on anime  (cost=0.00..25.50 rows=2 width=26) (actual time=0.006..0.068 rows=187.00 loops=1)
+               Filter: ((date_part('year'::text, (aired_on)::timestamp without time zone) >= '2010'::double precision) AND (date_part('year'::text, (aired_on)::timestamp without time zone) <= '2020'::double precision))
+               Rows Removed by Filter: 313
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=11
+ Planning Time: 0.064 ms
+ Execution Time: 0.101 ms
+(14 rows)
+
+=== 6. Карточка тайтла: три запроса (orm делает selectinload + joinedload) ===
+Ожидание: все три — Index Scan по PK.
+                                                               QUERY PLAN
+----------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=0.55..16.59 rows=1 width=675) (actual time=0.012..0.012 rows=1.00 loops=1)
+   Buffers: shared hit=9
+   ->  Index Scan using anime_pkey on anime  (cost=0.27..8.29 rows=1 width=661) (actual time=0.007..0.008 rows=1.00 loops=1)
+         Index Cond: (id = 1)
+         Index Searches: 1
+         Buffers: shared hit=6
+   ->  Index Scan using anime_stats_pkey on anime_stats  (cost=0.27..8.29 rows=1 width=22) (actual time=0.002..0.002 rows=1.00 loops=1)
+         Index Cond: (anime_id = 1)
+         Index Searches: 1
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=29
+ Planning Time: 0.075 ms
+ Execution Time: 0.020 ms
+(14 rows)
+
+                                                               QUERY PLAN
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=8.88..10.11 rows=2 width=29) (actual time=0.015..0.016 rows=1.00 loops=1)
+   Hash Cond: (genres.id = anime_genres.genre_id)
+   Buffers: shared hit=4
+   ->  Seq Scan on genres  (cost=0.00..1.18 rows=18 width=29) (actual time=0.002..0.003 rows=18.00 loops=1)
+         Buffers: shared hit=1
+   ->  Hash  (cost=8.85..8.85 rows=2 width=4) (actual time=0.007..0.008 rows=1.00 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+         Buffers: shared hit=3
+         ->  Bitmap Heap Scan on anime_genres  (cost=4.29..8.85 rows=2 width=4) (actual time=0.006..0.006 rows=1.00 loops=1)
+               Recheck Cond: (anime_id = 1)
+               Heap Blocks: exact=1
+               Buffers: shared hit=3
+               ->  Bitmap Index Scan on anime_genres_pkey  (cost=0.00..4.29 rows=2 width=0) (actual time=0.004..0.004 rows=1.00 loops=1)
+                     Index Cond: (anime_id = 1)
+                     Index Searches: 1
+                     Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=60
+ Planning Time: 0.153 ms
+ Execution Time: 0.028 ms
+(20 rows)
+
+=== Готово. Пришли планы (или вывод целиком) в тред — разберём вместе. ===
