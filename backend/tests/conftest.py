@@ -10,7 +10,6 @@ import asyncio
 import os
 import sys
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +35,7 @@ from app.core.config import settings  # noqa: E402
 from app.db.session import get_session  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models.user import User  # noqa: E402
+from tests.api_context import ApiTestContext
 
 TEST_DATABASE_NAME = "anifolder_test"
 
@@ -73,14 +73,6 @@ def database_ready() -> Iterator[None]:
     asyncio.run(_drop_database())
 
 
-@dataclass
-class ApiTestContext:
-    """Клиент и сессия одного теста: сессия живёт во внешней транзакции и видит всё."""
-
-    client: AsyncClient
-    session: AsyncSession
-
-
 @pytest_asyncio.fixture
 async def api(database_ready: None) -> AsyncIterator[ApiTestContext]:
     engine = create_async_engine(TEST_DATABASE_URL, echo=False)
@@ -102,7 +94,7 @@ async def api(database_ready: None) -> AsyncIterator[ApiTestContext]:
         app.dependency_overrides[get_session] = override_get_session
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            yield ApiTestContext(client=client, session=session)
+            yield ApiTestContext(client=client, session=session, app=app)
         app.dependency_overrides.clear()
         await session.close()
         await connection.rollback()

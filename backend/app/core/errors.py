@@ -50,9 +50,13 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # Только type/loc/msg: значения полей (input) не возвращаем — там бывают пароли
+    details = [
+        {"type": e["type"], "loc": e["loc"], "msg": e["msg"]} for e in exc.errors()
+    ]
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_body(VALIDATION_ERROR, "Ошибка валидации данных", details=exc.errors()),
+        content=error_body(VALIDATION_ERROR, "Ошибка валидации данных", details=details),
     )
 
 

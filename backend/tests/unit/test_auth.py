@@ -65,6 +65,9 @@ async def test_register_short_password(api: ApiTestContext) -> None:
         json={"username": "user1", "email": "u@example.com", "password": "short"},
     )
     assert response.status_code == 422
+    # значения полей (input) не возвращаем: в деталях не должно быть самого пароля
+    details = response.json()["error"]["details"]
+    assert details and all("input" not in d for d in details)
 
 
 async def test_register_username_taken_case_insensitive(api: ApiTestContext) -> None:
