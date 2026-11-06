@@ -1,5 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Дефолт только для локальной разработки; в .env всегда свой секрет (>= 32 байт).
+# Приложение предупреждает в лог при старте с этим значением.
+DEFAULT_JWT_SECRET = "dev-only-secret-change-me-in-env-0123456789abcdef"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -10,8 +14,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 10
 
     # Авторизация: access-токен JWT живёт 15 минут, refresh-токен 30 дней
-    # Дефолт только для локальной разработки; в .env всегда свой секрет (>= 32 байт)
-    jwt_secret: str = "dev-only-secret-change-me-in-env-0123456789abcdef"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_ttl: int = 900
     refresh_token_ttl: int = 2_592_000

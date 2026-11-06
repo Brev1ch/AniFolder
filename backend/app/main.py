@@ -13,8 +13,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import DEFAULT_JWT_SECRET, settings
 from app.core.errors import register_error_handlers
+from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import get_session
 from app.services import scheduler
 
@@ -37,6 +38,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     scheduler_task = await scheduler.start()
 
+    if settings.jwt_secret == DEFAULT_JWT_SECRET:
+        logger.warning("JWT_SECRET совпадает с дефолтным из репозитория — задайте свой в .env")
+
     yield
 
     scheduler_task.cancel()
@@ -55,6 +59,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RateLimitMiddleware)
 
     register_error_handlers(app)
     app.include_router(api_router)

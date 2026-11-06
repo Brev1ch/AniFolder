@@ -70,6 +70,26 @@ async def test_register_short_password(api: ApiTestContext) -> None:
     assert details and all("input" not in d for d in details)
 
 
+@pytest.mark.parametrize("username", ["abc", "u" * 32])
+async def test_register_username_boundaries(api: ApiTestContext, username: str) -> None:
+    """Границы CHECK-ограничения БД: 3 и 32 символа — валидны, 2 и 33 — нет (см. parametrize выше)."""
+    response = await api.client.post(
+        REGISTER_URL,
+        json={"username": username, "email": f"{username}@example.com", "password": PASSWORD},
+    )
+    assert response.status_code == 201
+
+
+@pytest.mark.parametrize("password_length,expected", [(72, 201), (73, 422)])
+async def test_register_password_length_boundary(api: ApiTestContext, password_length: int, expected: int) -> None:
+    """bcrypt молча обрезает после 72 байт: ровно 72 — ок, 73 — 422."""
+    response = await api.client.post(
+        REGISTER_URL,
+        json={"username": "user1", "email": "u@example.com", "password": "p" * password_length},
+    )
+    assert response.status_code == expected
+
+
 async def test_register_username_taken_case_insensitive(api: ApiTestContext) -> None:
     await _register(api, username="User_One", email="u1@example.com")
     response = await api.client.post(
@@ -229,3 +249,45 @@ async def test_me_with_garbage_token(api: ApiTestContext) -> None:
     response = await api.client.get(ME_URL, headers={"Authorization": "Bearer garbage"})
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+async def test_me_with_refresh_token(api: ApiTestContext) -> None:
+    """refresh-токен в заголовке Authorization не проходит: в access-токенах type=access."""
+    data = await _register(api)
+    response = await api.client.get(
+        ME_URL, headers={"Authorization": f"Bearer {data['refresh_token']}"}
+    )
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "INVALID_TOKEN"
+
+
+async def test_login_rate_limit(api: ApiTestContext) -> None:
+    """Лимит 5 попыток входа в минуту с одного IP; 6-й запрос — 429."""
+    await _register(api)
+    responses = [
+        await api.client.post(LOGIN_URL, json={"username": "user1", "password": "wrong"})
+        for _ in range(5)
+    ]
+    assert all(r.status_code == 401 for r in responses)
+
+    limited = await api.client.post(LOGIN_URL, json={"username": "user1", "password": "wrong"})
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"
+    assert "retry-after" in {k.lower() for k in limited.headers}
+
+
+async def test_register_rate_limit(api: ApiTestContext) -> None:
+    """Лимит 3 регистрации в минуту; 4-я — 429."""
+    for i in range(3):
+        response = await api.client.post(
+            REGISTER_URL,
+            json={"username": f"user{i}", "email": f"u{i}@example.com", "password": PASSWORD},
+        )
+        assert response.status_code == 201
+
+    limited = await api.client.post(
+        REGISTER_URL,
+        json={"username": "user4", "email": "u4@example.com", "password": PASSWORD},
+    )
+    assert limited.status_code == 429
+    assert limited.json()["error"]["code"] == "RATE_LIMITED"

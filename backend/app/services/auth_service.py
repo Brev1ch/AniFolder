@@ -39,10 +39,17 @@ async def register(session: AsyncSession, username: str, email: str, password: s
     return await _issue_tokens(session, user)
 
 
+# bcrypt-хэш заведомо чужого пароля: вычисляется один раз при импорте. Когда пользователь
+# не найден, verify всё равно выполняется против этой строки — по времени ответа нельзя
+# отличить «нет такого логина» от «неверный пароль» (timing attack).
+_DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing")
+
+
 async def login(session: AsyncSession, username: str, password: str) -> AuthResponse:
     """Вход по логину и паролю. Единый текст ошибки, чтобы не подсвечивать существующие логины."""
     user = await _get_user_by_username(session, username)
-    if user is None or not verify_password(password, user.password_hash):
+    password_hash = user.password_hash if user is not None else _DUMMY_PASSWORD_HASH
+    if not verify_password(password, password_hash) or user is None:
         raise errors.AppError(401, errors.INVALID_CREDENTIALS, "Неверный логин или пароль")
     return await _issue_tokens(session, user)
 
@@ -88,14 +95,8 @@ async def refresh(session: AsyncSession, refresh_token: str) -> AuthResponse:
         logger.warning("Гонка refresh-токенов: user_id=%s", user_id)
         raise errors.AppError(401, errors.REFRESH_TOKEN_REUSED, "Токен уже использован, все сессии отозваны")
 
-    new_refresh_token, new_token_hash = generate_refresh_token()
-    session.add(
-        RefreshToken(
-            user_id=user_id,
-            token_hash=new_token_hash,
-            expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.refresh_token_ttl),
-        )
-    )
+    new_refresh_token, new_record = _build_refresh_token(user_id)
+    session.add(new_record)
     await session.commit()
     return AuthResponse(
         access_token=create_access_token(user.id),
@@ -127,20 +128,25 @@ async def _get_user_by_username(session: AsyncSession, username: str) -> User | 
 
 async def _issue_tokens(session: AsyncSession, user: User) -> AuthResponse:
     """Создаёт запись refresh-токена и коммитит транзакцию, возвращает пару токенов."""
-    refresh_token, token_hash = generate_refresh_token()
-    session.add(
-        RefreshToken(
-            user_id=user.id,
-            token_hash=token_hash,
-            expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.refresh_token_ttl),
-        )
-    )
+    refresh_token, record = _build_refresh_token(user.id)
+    session.add(record)
     await session.commit()
     return AuthResponse(
         access_token=create_access_token(user.id),
         refresh_token=refresh_token,
         user=UserResponse.model_validate(user),
     )
+
+
+def _build_refresh_token(user_id: int) -> tuple[str, RefreshToken]:
+    """Новый refresh-токен и его запись для БД (SHA-256 хэш, TTL из настроек)."""
+    token, token_hash = generate_refresh_token()
+    record = RefreshToken(
+        user_id=user_id,
+        token_hash=token_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.refresh_token_ttl),
+    )
+    return token, record
 
 
 async def _revoke_family(session: AsyncSession, user_id: int) -> None:
