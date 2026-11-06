@@ -35,6 +35,9 @@ async def register(session: AsyncSession, username: str, email: str, password: s
         # проверка скажет, какое именно поле занято, — вместо разбора текста ошибки БД.
         await session.rollback()
         await _ensure_credentials_free(session, username, email)
+        # До сюда доходим, только если IntegrityError был не про username/email —
+        # логируем с контекстом, чтобы 500 было расследуемым.
+        logger.exception("IntegrityError при регистрации user=%s email=%s", username, email)
         raise
     return await _issue_tokens(session, user)
 
