@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8.4
+jupyterlab>=4.4
+matplotlib>=3.10

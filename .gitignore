@@ -13,6 +13,10 @@ frontend/dist/
 
 # ML-артефакты (веса моделей)
 ml/artifacts/
+# ML-данные (выгрузки AniList, датасеты)
+ml/data/
+# Jupyter
+.ipynb_checkpoints/
 
 # Секреты
 .env
