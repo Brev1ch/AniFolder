@@ -2,12 +2,14 @@
 
 from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
 from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.security import hash_refresh_token, verify_password
 from app.models.user import RefreshToken, User
-from tests.conftest import ApiTestContext
+from tests.conftest import TEST_DATABASE_URL, ApiTestContext
 
 REGISTER_URL = "/api/v1/auth/register"
 LOGIN_URL = "/api/v1/auth/login"
@@ -151,9 +153,17 @@ async def test_refresh_success(api: ApiTestContext) -> None:
     assert response.status_code == 200
 
     new_data = response.json()
-    assert new_data["access_token"] != data["access_token"]
+    # Уникальность access JWT не входит в контракт: при одинаковом sub и выдаче
+    # в одну секунду payload (iat/exp) совпадает и токены равны. Ротацию проверяем
+    # по refresh-токену и записям в БД, новый access — по claims.
     assert new_data["refresh_token"] != data["refresh_token"]
     assert new_data["user"]["id"] == data["user"]["id"]
+
+    old_claims = jwt.decode(data["access_token"], options={"verify_signature": False})
+    new_claims = jwt.decode(new_data["access_token"], options={"verify_signature": False})
+    assert new_claims["sub"] == old_claims["sub"] == str(data["user"]["id"])
+    assert new_claims["type"] == old_claims["type"] == "access"
+    assert new_claims["exp"] >= old_claims["exp"]
 
     # старая запись отозвана, новый хэш в БД
     old_hash = hash_refresh_token(data["refresh_token"])
@@ -168,6 +178,29 @@ async def test_refresh_invalid_token(api: ApiTestContext) -> None:
     response = await api.client.post(REFRESH_URL, json={"refresh_token": "garbage"})
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+
+async def test_service_rollback_and_commit_stay_inside_outer_transaction(api: ApiTestContext) -> None:
+    """«commit»/«rollback» сервиса работают через savepoint: внешняя транзакция
+    теста не завершается, и teardown-rollback по-прежнему отбрасывает всё.
+    Регрессионный тест: без create_savepoint rollback сервиса гасил внешнюю
+    транзакцию, а последующий commit оставлял строку в БД навсегда."""
+    await _register(api)
+
+    # имитация пути сервиса с ошибкой: rollback, затем новая попытка с commit
+    await api.session.rollback()
+    api.session.add(User(username="after_rollback", email="after@example.com", password_hash="x"))
+    await api.session.commit()
+
+    # из отдельного соединения не видно ни одной строки: всё ещё внутри
+    # незакоммиченной внешней транзакции фикстуры
+    probe = create_async_engine(TEST_DATABASE_URL)
+    try:
+        async with probe.connect() as connection:
+            count = await connection.scalar(select(func.count()).select_from(User))
+            assert count == 0
+    finally:
+        await probe.dispose()
 
 
 async def test_refresh_reuse_revokes_family(api: ApiTestContext) -> None:

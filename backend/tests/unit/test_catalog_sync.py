@@ -122,7 +122,7 @@ async def test_apply_batch_upsert_keeps_title_ru_and_replaces_genres(api: ApiTes
     await api.session.refresh(anime)
     assert anime.id == anime_id  # тот же тайтл, новых строк нет
     assert anime.title_en == "New Title"
-    assert anime.title_ru == "Ручный перевод"  # не перезаписан
+    assert anime.title_ru == "Ручной перевод"  # не перезаписан
 
     genre_rows = (
         await api.session.execute(
@@ -139,3 +139,54 @@ async def test_apply_batch_skips_unknown_status(api: ApiTestContext) -> None:
     assert count == 0
     anime = await api.session.scalar(select(Anime).where(Anime.anilist_id == 30))
     assert anime is None
+
+
+# --- Регрессионные тесты направления словаря ID (ревью N1/N2, PR #8) ---
+# В свежей тестовой БД внутренний id тайтла мал, а anilist_id у реальных
+# тайтлов огромен: в старом «прямом» словаре это KeyError на жанрах и
+# DELETE по чужим ID. Явно берём anilist_id, гарантированно не совпадающий
+# с любым значением sequence.
+
+
+async def _genre_names(session, anime_id: int) -> list[str]:
+    rows = (
+        await session.execute(
+            select(Genre.name_en)
+            .join(anime_genres, anime_genres.c.genre_id == Genre.id)
+            .where(anime_genres.c.anime_id == anime_id)
+        )
+    ).scalars().all()
+    return sorted(rows)
+
+
+async def test_apply_batch_links_genres_with_nonmatching_ids(api: ApiTestContext) -> None:
+    count = await apply_media_batch(api.session, [_media(800000001)])
+    assert count == 1
+
+    anime = await api.session.scalar(select(Anime).where(Anime.anilist_id == 800000001))
+    assert anime is not None
+    assert await _genre_names(api.session, anime.id) == ["Action", "Comedy"]
+
+
+async def test_apply_batch_empty_genres_removes_all_links(api: ApiTestContext) -> None:
+    await apply_media_batch(api.session, [_media(800000002)])
+    anime = await api.session.scalar(select(Anime).where(Anime.anilist_id == 800000002))
+    assert anime is not None and await _genre_names(api.session, anime.id)
+
+    # пустой снимок жанров из AniList — старые связи удаляются целиком
+    await apply_media_batch(api.session, [_media(800000002, genres=[])])
+    assert await _genre_names(api.session, anime.id) == []
+
+
+async def test_apply_batch_keeps_other_titles_links(api: ApiTestContext) -> None:
+    await apply_media_batch(api.session, [_media(800000003, genres=["Action"])])
+
+    # следующая страница не содержит первый тайтл: его связи не трогаем,
+    # даже если внутренний ID одного совпадёт с anilist_id другого
+    await apply_media_batch(api.session, [_media(1, genres=["Drama"])])
+
+    first = await api.session.scalar(select(Anime).where(Anime.anilist_id == 800000003))
+    second = await api.session.scalar(select(Anime).where(Anime.anilist_id == 1))
+    assert first is not None and second is not None
+    assert await _genre_names(api.session, first.id) == ["Action"]
+    assert await _genre_names(api.session, second.id) == ["Drama"]
