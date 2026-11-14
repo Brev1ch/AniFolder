@@ -1,0 +1,153 @@
+5a: date_part, no kind (original)
+                                                                                                        QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=25.51..25.52 rows=2 width=26) (actual time=0.203..0.205 rows=20.00 loops=1)
+   Buffers: shared hit=19
+   ->  Sort  (cost=25.51..25.52 rows=2 width=26) (actual time=0.201..0.202 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=19
+         ->  Seq Scan on anime  (cost=0.00..25.50 rows=2 width=26) (actual time=0.015..0.148 rows=187.00 loops=1)
+               Filter: ((date_part('year'::text, (aired_on)::timestamp without time zone) >= '2010'::double precision) AND (date_part('year'::text, (aired_on)::timestamp without time zone) <= '2020'::double precision))
+               Rows Removed by Filter: 313
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=181
+ Planning Time: 0.719 ms
+ Execution Time: 0.241 ms
+(14 rows)
+
+5b: date range, no kind
+                                                     QUERY PLAN
+--------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=25.50..25.55 rows=20 width=26) (actual time=0.066..0.068 rows=20.00 loops=1)
+   Buffers: shared hit=13
+   ->  Sort  (cost=25.50..25.97 rows=188 width=26) (actual time=0.065..0.066 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=13
+         ->  Seq Scan on anime  (cost=0.00..20.50 rows=188 width=26) (actual time=0.005..0.044 rows=187.00 loops=1)
+               Filter: ((aired_on >= '2010-01-01'::date) AND (aired_on < '2021-01-01'::date))
+               Rows Removed by Filter: 313
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.069 ms
+ Execution Time: 0.075 ms
+(14 rows)
+
+5c: date_part with kind
+                                                                                                                        QUERY PLAN
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=26.76..26.77 rows=1 width=26) (actual time=0.070..0.071 rows=20.00 loops=1)
+   Buffers: shared hit=13
+   ->  Sort  (cost=26.76..26.77 rows=1 width=26) (actual time=0.069..0.070 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=13
+         ->  Seq Scan on anime  (cost=0.00..26.75 rows=1 width=26) (actual time=0.008..0.056 rows=80.00 loops=1)
+               Filter: (((kind)::text = 'tv'::text) AND (date_part('year'::text, (aired_on)::timestamp without time zone) >= '2010'::double precision) AND (date_part('year'::text, (aired_on)::timestamp without time zone) <= '2020'::double precision))
+               Rows Removed by Filter: 420
+               Buffers: shared hit=13
+ Planning Time: 0.060 ms
+ Execution Time: 0.108 ms
+(12 rows)
+
+5d: date range with kind
+                                                                   QUERY PLAN
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=21.65..21.70 rows=20 width=26) (actual time=0.093..0.096 rows=20.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=21.65..21.84 rows=77 width=26) (actual time=0.093..0.094 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=16
+         ->  Bitmap Heap Scan on anime  (cost=5.25..19.60 rows=77 width=26) (actual time=0.056..0.076 rows=80.00 loops=1)
+               Recheck Cond: (((kind)::text = 'tv'::text) AND (aired_on >= '2010-01-01'::date) AND (aired_on < '2021-01-01'::date))
+               Heap Blocks: exact=13
+               Buffers: shared hit=16
+               ->  Bitmap Index Scan on anime_kind_aired_on_idx  (cost=0.00..5.24 rows=77 width=0) (actual time=0.043..0.043 rows=80.00 loops=1)
+                     Index Cond: (((kind)::text = 'tv'::text) AND (aired_on >= '2010-01-01'::date) AND (aired_on < '2021-01-01'::date))
+                     Index Searches: 1
+                     Buffers: shared hit=3
+ Planning Time: 0.054 ms
+ Execution Time: 0.109 ms
+(16 rows)
+
+Equivalence (all matches, both directions, expected 0)
+ differences
+-------------
+           0
+(1 row)
+
+DIAGNOSTIC ONLY: enable_seqscan=off; proves index applicability, not planner preference
+BEGIN
+SET
+Search: both GIN indexes required by OR
+                                                                 QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on anime  (cost=279.31..292.63 rows=10 width=8) (actual time=0.412..0.420 rows=11.00 loops=1)
+   Recheck Cond: (((title_ru)::text ~~* '%Test Anime 7%'::text) OR ((title_en)::text ~~* '%Test Anime 7%'::text))
+   Heap Blocks: exact=2
+   Buffers: shared hit=67
+   ->  BitmapOr  (cost=279.31..279.31 rows=10 width=0) (actual time=0.400..0.400 rows=0.00 loops=1)
+         Buffers: shared hit=65
+         ->  Bitmap Index Scan on anime_title_ru_trgm_idx  (cost=0.00..150.25 rows=1 width=0) (actual time=0.236..0.236 rows=0.00 loops=1)
+               Index Cond: ((title_ru)::text ~~* '%Test Anime 7%'::text)
+               Index Searches: 1
+               Buffers: shared hit=35
+         ->  Bitmap Index Scan on anime_title_en_trgm_idx  (cost=0.00..129.05 rows=10 width=0) (actual time=0.163..0.163 rows=11.00 loops=1)
+               Index Cond: ((title_en)::text ~~* '%Test Anime 7%'::text)
+               Index Searches: 1
+               Buffers: shared hit=30
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.628 ms
+ Execution Time: 0.470 ms
+(18 rows)
+
+date_part with kind: inspect Index Cond vs Filter
+                                                                                                        QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=32.46..32.46 rows=1 width=26) (actual time=0.067..0.069 rows=20.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=32.46..32.46 rows=1 width=26) (actual time=0.066..0.067 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=16
+         ->  Bitmap Heap Scan on anime  (cost=13.81..32.45 rows=1 width=26) (actual time=0.021..0.054 rows=80.00 loops=1)
+               Recheck Cond: ((kind)::text = 'tv'::text)
+               Filter: ((date_part('year'::text, (aired_on)::timestamp without time zone) >= '2010'::double precision) AND (date_part('year'::text, (aired_on)::timestamp without time zone) <= '2020'::double precision))
+               Rows Removed by Filter: 125
+               Heap Blocks: exact=13
+               Buffers: shared hit=16
+               ->  Bitmap Index Scan on anime_kind_aired_on_idx  (cost=0.00..13.81 rows=205 width=0) (actual time=0.012..0.012 rows=205.00 loops=1)
+                     Index Cond: ((kind)::text = 'tv'::text)
+                     Index Searches: 1
+                     Buffers: shared hit=3
+ Planning Time: 0.064 ms
+ Execution Time: 0.079 ms
+(18 rows)
+
+date range with kind: inspect Index Cond vs Filter
+                                                                   QUERY PLAN
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=21.65..21.70 rows=20 width=26) (actual time=0.035..0.037 rows=20.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=21.65..21.84 rows=77 width=26) (actual time=0.034..0.035 rows=20.00 loops=1)
+         Sort Key: aired_on DESC NULLS LAST, id
+         Sort Method: top-N heapsort  Memory: 27kB
+         Buffers: shared hit=16
+         ->  Bitmap Heap Scan on anime  (cost=5.25..19.60 rows=77 width=26) (actual time=0.013..0.024 rows=80.00 loops=1)
+               Recheck Cond: (((kind)::text = 'tv'::text) AND (aired_on >= '2010-01-01'::date) AND (aired_on < '2021-01-01'::date))
+               Heap Blocks: exact=13
+               Buffers: shared hit=16
+               ->  Bitmap Index Scan on anime_kind_aired_on_idx  (cost=0.00..5.24 rows=77 width=0) (actual time=0.009..0.009 rows=80.00 loops=1)
+                     Index Cond: (((kind)::text = 'tv'::text) AND (aired_on >= '2010-01-01'::date) AND (aired_on < '2021-01-01'::date))
+                     Index Searches: 1
+                     Buffers: shared hit=3
+ Planning Time: 0.036 ms
+ Execution Time: 0.043 ms
+(16 rows)
+
+ROLLBACK

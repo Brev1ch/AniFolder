@@ -1,0 +1,123 @@
+BEGIN
+INSERT 0 2
+INSERT 0 1
+SELECT 1
+CREATE FUNCTION
+psql:tests/integration/schema_checks.sql:37: NOTICE:  ok: username уникален без учёта регистра
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:40: NOTICE:  ok: email уникален без учёта регистра
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:43: NOTICE:  ok: формат username
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:48: NOTICE:  ok: anilist_id обязателен
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:51: NOTICE:  ok: anilist_id уникален
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:54: NOTICE:  ok: статусы AniList как есть не принимаются, только наши
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:57: NOTICE:  ok: mal_id уникален
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:63: NOTICE:  ok: несколько тайтлов без mal_id
+DO
+psql:tests/integration/schema_checks.sql:71: NOTICE:  ok: upsert жанров не затирает переводы
+DO
+psql:tests/integration/schema_checks.sql:77: NOTICE:  ok: user_anime.score <= 10
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:81: NOTICE:  ok: reviews.score >= 1
+ expect_error
+--------------
+
+(1 row)
+
+INSERT 0 1
+psql:tests/integration/schema_checks.sql:88: NOTICE:  ok: один отзыв на тайтл
+ expect_error
+--------------
+
+(1 row)
+
+DELETE 0
+INSERT 0 2
+DO
+ refresh_anime_stats
+---------------------
+                   1
+(1 row)
+
+psql:tests/integration/schema_checks.sql:107: NOTICE:  ok: пересчёт статистики после вставки
+DO
+UPDATE 1
+DELETE 1
+ refresh_anime_stats
+---------------------
+                   1
+(1 row)
+
+psql:tests/integration/schema_checks.sql:119: NOTICE:  ok: пересчёт статистики после UPDATE и DELETE
+DO
+psql:tests/integration/schema_checks.sql:130: NOTICE:  ok: updated_at
+DO
+INSERT 0 1
+INSERT 0 1
+SELECT 1
+INSERT 0 1
+INSERT 0 1
+psql:tests/integration/schema_checks.sql:152: NOTICE:  ok: счётчики темы при вставке
+DO
+psql:tests/integration/schema_checks.sql:157: NOTICE:  ok: родитель комментария из другой темы
+ expect_error
+--------------
+
+(1 row)
+
+psql:tests/integration/schema_checks.sql:160: NOTICE:  ok: несуществующий родитель комментария
+ expect_error
+--------------
+
+(1 row)
+
+DELETE 1
+psql:tests/integration/schema_checks.sql:166: NOTICE:  ok: счётчик темы при удалении
+DO
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+DELETE 1
+psql:tests/integration/schema_checks.sql:181: NOTICE:  ok: каскады при удалении пользователя
+DO
+psql:tests/integration/schema_checks.sql:191: NOTICE:  ok: партиции
+DO
+Все проверки схемы пройдены
+ROLLBACK

@@ -1,0 +1,10 @@
+cursor: propagated error: simulated import failure
+cursor failure saved= [300] unprocessed updatedAt=200; next updatedAt > 299
+cursor max_pages saved= [300] unprocessed updatedAt=200; next updatedAt > 299
+list limit 1 : 2 SQL statements, 1 items
+list limit 50 : 2 SQL statements, 50 items
+detail: 2 SQL statements, genres= 1
+empty genre snapshot: 1 -> 1 (expected 0); title_ru preserved= True
+nonmatching IDs: confirmed KeyError 800000001
+fixture outer transaction active after service rollback: False
+fixture row survives claimed external rollback: True
