@@ -38,14 +38,30 @@ from app.models.user import User  # noqa: E402
 from tests.api_context import ApiTestContext
 
 TEST_DATABASE_NAME = "anifolder_test"
+# DROP ... WITH (FORCE) по умолчанию разрешён только на локальном сервере;
+# для удалённого выделенного тестового сервера нужен явный opt-in.
+ALLOW_REMOTE_DROP_ENV = "ANIFOLDER_ALLOW_REMOTE_TEST_DB"
 
 _test_url = make_url(settings.database_url).set(database=TEST_DATABASE_NAME)
 TEST_DATABASE_URL = _test_url.render_as_string(hide_password=False)
 ADMIN_DATABASE_URL = make_url(settings.database_url).set(database="postgres").render_as_string(hide_password=False)
 
 
+def _check_drop_target_allowed(admin_url) -> None:
+    host = admin_url.host
+    if host in (None, "localhost", "127.0.0.1", "::1"):
+        return
+    if os.environ.get(ALLOW_REMOTE_DROP_ENV) == "1":
+        return
+    raise RuntimeError(
+        f"Отказ от DROP тестовой БД на нелокальном хосте {host!r}. "
+        f"Если это выделенный тестовый сервер, задайте {ALLOW_REMOTE_DROP_ENV}=1."
+    )
+
+
 async def _recreate_database() -> None:
     """Пересоздание тестовой БД: DDL требует autocommit-изоляции."""
+    _check_drop_target_allowed(make_url(ADMIN_DATABASE_URL))
     engine = create_async_engine(ADMIN_DATABASE_URL, isolation_level="AUTOCOMMIT")
     async with engine.connect() as connection:
         await connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DATABASE_NAME} WITH (FORCE)"))
@@ -54,6 +70,7 @@ async def _recreate_database() -> None:
 
 
 async def _drop_database() -> None:
+    _check_drop_target_allowed(make_url(ADMIN_DATABASE_URL))
     engine = create_async_engine(ADMIN_DATABASE_URL, isolation_level="AUTOCOMMIT")
     async with engine.connect() as connection:
         await connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DATABASE_NAME} WITH (FORCE)"))
@@ -85,7 +102,11 @@ async def api(database_ready: None) -> AsyncIterator[ApiTestContext]:
 
     async with engine.connect() as connection:
         await connection.begin()
-        session_factory = async_sessionmaker(bind=connection, expire_on_commit=False)
+        # create_savepoint: «commit»/«rollback» сервиса работают внутри внешней
+        # транзакции и не завершают её — teardown-rollback откатывает всё подряд.
+        session_factory = async_sessionmaker(
+            bind=connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
         session = session_factory()
 
         async def override_get_session() -> AsyncIterator[AsyncSession]:

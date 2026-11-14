@@ -74,8 +74,8 @@ async def test_anime_list_pagination(api: ApiTestContext) -> None:
     assert data["page"] == 2
     assert data["limit"] == 2
     assert len(data["items"]) == 2
-    # title-сортировка по title_en
-    assert [i["title_en"] for i in data["items"]] == ["Naruto", "Naruto Movie"]
+    # title-сортировка по title_en: Announced Title, Naruto | Naruto Movie, On Hold Title | Sasuke Future
+    assert [i["title_en"] for i in data["items"]] == ["Naruto Movie", "On Hold Title"]
 
 
 async def test_anime_list_limit_validation(api: ApiTestContext) -> None:

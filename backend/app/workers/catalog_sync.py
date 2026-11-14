@@ -143,14 +143,19 @@ async def apply_media_batch(session: AsyncSession, medias: list[dict[str, Any]])
         )
         .returning(Anime.id, Anime.anilist_id)
     )
-    anime_ids = dict((await session.execute(stmt)).all())
+    # RETURNING отдаёт (внутренний id, anilist_id): словарь строим явно в обратную
+    # сторону. В «прямом» направлении DELETE жанров брал anilist_id за внутренний
+    # id (чужие/нулевые связи), а lookup жанров падал с KeyError, когда id не совпадали.
+    id_by_anilist = {
+        anilist_id: internal_id for internal_id, anilist_id in (await session.execute(stmt)).all()
+    }
 
     # Связи жанров — полный снимок из AniList: заменяем старый набор новым
     await session.execute(
-        anime_genres.delete().where(anime_genres.c.anime_id.in_(anime_ids.values()))
+        anime_genres.delete().where(anime_genres.c.anime_id.in_(id_by_anilist.values()))
     )
     links = [
-        {"anime_id": anime_ids[r["anilist_id"]], "genre_id": genre_ids[g]}
+        {"anime_id": id_by_anilist[r["anilist_id"]], "genre_id": genre_ids[g]}
         for r in rows
         for g in r["_genres"]
         if g in genre_ids
@@ -255,13 +260,20 @@ async def run(full: bool = False, max_pages: int | None = None) -> int:
     client = AniListClient()
     total = 0
     max_updated_at = cursor or 0
+    # Курсор повышаем только после доказанно полного обхода: при ошибке или
+    # остановке по --max-pages прежний курсор остаётся, иначе необработанные
+    # тайтлы (updatedAt меньше максимума уже пройденного префикса) пропускались бы.
+    completed = False
     try:
         page = 1
         while True:
             payload = await client.fetch_page(page, updated_at_greater)
+            if payload.get("errors"):
+                raise RuntimeError(f"AniList вернул ошибки GraphQL на странице {page}: {payload['errors']}")
             data = payload.get("data", {}).get("Page", {})
             medias = data.get("media") or []
             if not medias:
+                completed = True
                 break
 
             async with SessionLocal() as session:
@@ -273,15 +285,19 @@ async def run(full: bool = False, max_pages: int | None = None) -> int:
                 logger.info("Обработано страниц: %s, тайтлов: %s", page, total)
 
             if not data.get("pageInfo", {}).get("hasNextPage"):
+                completed = True
                 break
             if max_pages is not None and page >= max_pages:
-                logger.info("Остановка по --max-pages=%s", max_pages)
+                logger.info("Остановка по --max-pages=%s — курсор не сохранён", max_pages)
                 break
             page += 1
     finally:
         await client.close()
         if redis is not None:
-            await _save_cursor(redis, max_updated_at)
+            if completed:
+                await _save_cursor(redis, max_updated_at)
+            else:
+                logger.info("Проход не завершён полностью — курсор оставлен прежним (%s)", cursor)
             await redis.close(close_connection_pool=True)
 
     logger.info("Синхронизация завершена: %s тайтлов, курсор updatedAt=%s", total, max_updated_at)
