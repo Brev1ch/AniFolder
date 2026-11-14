@@ -3,12 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { registerApi } from '../api/auth';
 import { useAuthStore } from '../store';
+import { type AuthErrors, readAuthErrors, validateCredentials } from '../api/authErrors';
+import { AuthRateLimitToast } from '../components/AuthRateLimitToast';
 
 export const RegisterPage = () => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<AuthErrors>({});
 
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
@@ -19,17 +21,16 @@ export const RegisterPage = () => {
       login(data.data.user, data.data.access_token, data.data.refresh_token);
       navigate('/me');
     },
-    onError: (err: any) => {
-      setError(
-        err.response?.data?.error?.message ||
-          'Ошибка регистрации. Возможно, пользователь уже существует.'
-      );
+    onError: (error) => {
+      setErrors(readAuthErrors(error, ['username','email','password'], 'Ошибка регистрации. Проверьте данные.'));
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    const validationErrors = validateCredentials(username, password);
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length) return;
     mutation.mutate({ username, email, password });
   };
 
@@ -39,46 +40,58 @@ export const RegisterPage = () => {
         Регистрация в <span style={{ color: '#a884b5' }}>AniFolder</span>
       </h2>
 
-      {error && (
-        <div className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: '#ef444420', color: '#ef4444', border: '1px solid #ef444440' }}>
-          {error}
+      {errors.rateLimited && <AuthRateLimitToast onDismiss={() => setErrors({})} />}
+      {errors.form && (
+        <div role="alert" className="mb-4 p-3 rounded text-sm" style={{ backgroundColor: '#ef444420', color: '#ef4444', border: '1px solid #ef444440' }}>
+          {errors.form}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Имя пользователя</label>
+          <label htmlFor="register-username" className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Имя пользователя</label>
           <input
             type="text"
+            id="register-username"
+            aria-invalid={Boolean(errors.username)}
+            aria-describedby={errors.username ? 'register-username-error' : undefined}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full p-2 border rounded focus:ring-2 outline-none"
-            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: '#3d3442' }}
+            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: errors.username ? '#ef4444' : '#3d3442' }}
             required
           />
+          {errors.username && <p id="register-username-error" role="alert" className="mt-1 text-sm text-red-300">{errors.username}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Email</label>
+          <label htmlFor="register-email" className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Email</label>
           <input
             type="email"
+            id="register-email"
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={errors.email ? 'register-email-error' : undefined}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full p-2 border rounded focus:ring-2 outline-none"
-            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: '#3d3442' }}
+            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: errors.email ? '#ef4444' : '#3d3442' }}
             required
           />
+          {errors.email && <p id="register-email-error" role="alert" className="mt-1 text-sm text-red-300">{errors.email}</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Пароль</label>
+          <label htmlFor="register-password" className="block text-sm font-medium mb-1" style={{ color: '#cbbfce' }}>Пароль</label>
           <input
             type="password"
+            id="register-password"
+            aria-invalid={Boolean(errors.password)}
+            aria-describedby={errors.password ? 'register-password-error' : undefined}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full p-2 border rounded focus:ring-2 outline-none"
-            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: '#3d3442' }}
+            style={{ backgroundColor: '#1c191f', color: '#f1ebf2', borderColor: errors.password ? '#ef4444' : '#3d3442' }}
             required
-            minLength={6}
           />
+          {errors.password && <p id="register-password-error" role="alert" className="mt-1 text-sm text-red-300">{errors.password}</p>}
         </div>
 
         <button

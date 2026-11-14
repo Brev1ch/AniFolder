@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMyList, updateListItem, removeFromList, ListUpdateRequest } from '../api/profile';
 import { useAuthStore } from '../store';
-import { UserListAnime } from '../types/anime';
+import { Anime, UserListAnime, displayTitle } from '../types/anime';
+import { AnimePoster } from '../components/AnimePoster';
 import { RecommendationsBlock } from '../components/RecommendationsBlock';
 
 const STATUS_TABS = [
@@ -32,8 +33,8 @@ export const ProfilePage = () => {
   const fullList = data?.data || [];
 
   const updateMutation = useMutation({
-    mutationFn: ({ animeId, payload }: { animeId: number; payload: ListUpdateRequest }) =>
-      updateListItem(animeId, payload),
+    mutationFn: ({ animeId, payload, anime }: { animeId: number; payload: ListUpdateRequest; anime?: Anime }) =>
+      updateListItem(animeId, payload, anime),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['myList'] }); queryClient.invalidateQueries({ queryKey: ['recommendations'] }); },
   });
 
@@ -83,7 +84,7 @@ export const ProfilePage = () => {
         ['Серий', fullList.reduce((sum, item) => sum + item.episodes_watched, 0)],
       ].map(([label, count]) => <div key={label} className="rounded-xl border border-gray-800 p-4"><span className="text-2xl font-semibold text-accent-hover">{count}</span><p className="mt-1 text-xs text-gray-400">{label}</p></div>)}</div>
       {(updateMutation.isError || removeMutation.isError) && <p role="alert" className="mb-4 text-sm text-red-300">Не удалось сохранить изменение. Попробуй ещё раз.</p>}
-      {removed && <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 p-4 text-sm"><span>«{removed.title_ru}» удалено из списка</span><button className="text-accent-hover" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ animeId: removed.id, payload: { status: removed.status, episodes_watched: removed.episodes_watched, score: removed.score } }, { onSuccess: () => setRemoved(null) })}>Отменить удаление</button></div>}
+      {removed && <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-800 p-4 text-sm"><span>«{displayTitle(removed)}» удалено из списка</span><button className="text-accent-hover" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate({ animeId: removed.id, anime: removed, payload: { status: removed.status, episodes_watched: removed.episodes_watched, score: removed.score } }, { onSuccess: () => setRemoved(null) })}>Отменить удаление</button></div>}
 
       <div className="flex flex-wrap gap-2 mb-6 pb-4">
         {STATUS_TABS.map((tab) => {
@@ -145,21 +146,17 @@ interface AnimeListItemProps {
 
 const AnimeListItem = ({ item, onScoreChange, onEpisodesChange, onStatusChange, onRemove, isUpdating }: AnimeListItemProps) => (
   <div className="p-4 rounded-lg shadow-sm border border-gray-800 flex gap-4 hover:shadow-md transition-shadow" style={{ backgroundColor: '#27222b' }}>
-    <img
-      src={item.poster_url || 'https://via.placeholder.com/80x120?text=No+Poster'}
-      alt={item.title_ru}
-      className="w-20 h-28 object-cover rounded flex-shrink-0"
-    />
+    <AnimePoster anime={item} className="w-20 h-28 object-cover rounded flex-shrink-0" />
     <div className="flex-grow min-w-0">
       <div className="flex justify-between items-start mb-2">
         <div>
-          <Link to={`/anime/${item.id}`} className="font-semibold text-gray-100 hover:text-accent-hover">{item.title_ru}</Link>
+          <Link to={`/anime/${item.id}`} className="font-semibold text-gray-100 hover:text-accent-hover">{displayTitle(item)}</Link>
           <p className="text-xs text-gray-400">
-            {item.kind.toUpperCase()} • {item.episodes} эп. • {new Date(item.aired_on).getFullYear()}
+            {[item.kind?.toUpperCase(), item.episodes === null ? null : `${item.episodes} эп.`, item.aired_on?.slice(0, 4)].filter(Boolean).join(' · ')}
           </p>
         </div>
         <button
-          aria-label={`Удалить ${item.title_ru} из списка`}
+          aria-label={`Удалить ${displayTitle(item)} из списка`}
           onClick={() => onRemove(item.id)}
           disabled={isUpdating}
           className="text-red-400 hover:text-red-300 text-sm font-medium disabled:opacity-50"
@@ -167,12 +164,12 @@ const AnimeListItem = ({ item, onScoreChange, onEpisodesChange, onStatusChange, 
           ✕
         </button>
       </div>
-      <div className="mb-3 mt-3"><progress aria-label={`Прогресс просмотра: ${item.title_ru}`} className="collection-progress" value={item.episodes_watched} max={item.episodes || Math.max(1, item.episodes_watched)} /><p className="mt-1 text-xs text-gray-400">Просмотрено {item.episodes_watched} из {item.episodes || '?'} серий</p></div>
+      <div className="mb-3 mt-3"><progress aria-label={`Прогресс просмотра: ${displayTitle(item)}`} className="collection-progress" value={item.episodes_watched} max={item.episodes || Math.max(1, item.episodes_watched)} /><p className="mt-1 text-xs text-gray-400">Просмотрено {item.episodes_watched} из {item.episodes || '?'} серий</p></div>
       <div className="flex flex-wrap gap-4 items-center">
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-400">Оценка:</label>
           <select
-            aria-label={`Оценка: ${item.title_ru}`}
+            aria-label={`Оценка: ${displayTitle(item)}`}
             value={item.score ?? ''}
             onChange={(e) => onScoreChange(item.id, e.target.value ? Number(e.target.value) : null)}
             disabled={isUpdating}
@@ -186,7 +183,7 @@ const AnimeListItem = ({ item, onScoreChange, onEpisodesChange, onStatusChange, 
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-400">Эпизоды:</label>
           <input
-            aria-label={`Просмотрено серий: ${item.title_ru}`}
+            aria-label={`Просмотрено серий: ${displayTitle(item)}`}
             type="number"
             value={item.episodes_watched}
             onChange={(e) => onEpisodesChange(item.id, Math.min(Math.max(0, Number(e.target.value)), item.episodes || Infinity))}
@@ -194,12 +191,12 @@ const AnimeListItem = ({ item, onScoreChange, onEpisodesChange, onStatusChange, 
             className="border border-gray-700 rounded px-2 py-1 w-16 text-sm outline-none disabled:opacity-50 text-white"
             style={{ backgroundColor: '#1c191f' }}
           />
-          <button className="button-secondary !px-3 !py-1.5" disabled={isUpdating || (item.episodes > 0 && item.episodes_watched >= item.episodes)} onClick={() => onEpisodesChange(item.id, item.episodes_watched + 1)}>+1 серия</button>
+          <button className="button-secondary !px-3 !py-1.5" disabled={isUpdating || (item.episodes !== null && item.episodes_watched >= item.episodes)} onClick={() => onEpisodesChange(item.id, item.episodes_watched + 1)}>+1 серия</button>
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-400">Статус:</label>
           <select
-            aria-label={`Статус: ${item.title_ru}`}
+            aria-label={`Статус: ${displayTitle(item)}`}
             value={item.status}
             onChange={(e) => onStatusChange(item.id, e.target.value as StatusType)}
             disabled={isUpdating}

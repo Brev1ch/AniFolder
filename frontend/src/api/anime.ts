@@ -1,6 +1,6 @@
 import { apiClient } from './client';
-import { demoAnime, saveDemoItem } from './demo';
-import { Anime } from '../types/anime';
+import { saveDemoItem } from './demo';
+import { AnimeDetail } from '../types/anime';
 
 const USE_MOCK = true;
 
@@ -24,15 +24,8 @@ export interface ListUpdateRequest {
   episodes_watched?: number;
 }
 
-export const getAnimeDetails = async (id: number): Promise<{ data: Anime }> => {
-  if (USE_MOCK) {
-    await new Promise((r) => setTimeout(r, 200));
-    const anime = demoAnime.find(item => item.id === id);
-    if (!anime) throw new Error('Тайтл не найден');
-    return { data: anime };
-  }
-  return apiClient.get<Anime>(`/anime/${id}`);
-};
+export const getAnimeDetails = (id: number): Promise<{ data: AnimeDetail }> =>
+  apiClient.get<AnimeDetail>(`/anime/${id}`);
 
 export const getAnimeReviews = async (id: number): Promise<{ data: Review[] }> => {
   if (USE_MOCK) {
@@ -60,7 +53,7 @@ export const createReview = async (id: number, data: ReviewCreateRequest): Promi
 export const updateMyList = async (animeId: number, data: ListUpdateRequest): Promise<{ data: any }> => {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 300));
-    return { data: saveDemoItem(animeId, data) };
+    return { data: saveDemoItem(animeId, data, (await getAnimeDetails(animeId)).data) };
   }
   return apiClient.put(`/me/list/${animeId}`, data);
 };

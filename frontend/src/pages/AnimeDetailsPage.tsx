@@ -2,6 +2,8 @@ import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getAnimeDetails, getAnimeReviews, createReview } from '../api/anime';
+import { AnimePoster } from '../components/AnimePoster';
+import { displayGenre, displayTitle } from '../types/anime';
 import { CollectionControl } from '../components/CollectionControl';
 import { useAuthStore } from '../store';
 
@@ -54,26 +56,41 @@ export const AnimeDetailsPage = () => {
     return <div className="text-center py-20 text-red-400">Тайтл не найден</div>;
   }
 
+  const title = displayTitle(anime);
+  const avgScore = Number.parseFloat(anime.stats?.avg_score ?? '');
+  const metadata = [
+    anime.title_en !== title ? anime.title_en : null,
+    anime.kind?.toUpperCase(),
+    anime.aired_on?.slice(0, 4),
+    anime.episodes === null ? null : `${anime.episodes} эп.`,
+  ].filter(Boolean);
+
   return (
     <div className="max-w-5xl mx-auto rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: '#27222b' }}>
       <div className="md:flex">
         <div className="md:w-1/3">
-          <img
-            src={anime.poster_url || 'https://via.placeholder.com/400x600?text=No+Poster'}
-            alt={anime.title_ru}
-            className="w-full aspect-[2/3] object-cover"
-          />
+          <AnimePoster anime={anime} className="w-full aspect-[2/3] object-cover" />
         </div>
         <div className="p-6 sm:p-9 md:w-2/3">
-          <h1 className="text-3xl font-bold mb-2 text-white">{anime.title_ru}</h1>
-          <p className="text-gray-400 mb-4">
-            {anime.title_en} • {anime.kind.toUpperCase()} • {new Date(anime.aired_on).getFullYear()}
-          </p>
+          <h1 className="text-3xl font-bold mb-2 text-white">{title}</h1>
+          {metadata.length > 0 && <p className="text-gray-400 mb-4">{metadata.join(' · ')}</p>}
+          {anime.genres.length > 0 && (
+            <ul aria-label="Жанры" className="mb-4 flex flex-wrap gap-2">
+              {anime.genres.map((genre) => <li key={genre.id} className="filter-chip">{displayGenre(genre)}</li>)}
+            </ul>
+          )}
           <p className="mb-6 text-gray-300 leading-relaxed whitespace-pre-line">
-            {anime.description}
+            {anime.description ?? 'Описание пока не добавлено.'}
           </p>
 
-          <CollectionControl animeId={animeId} />
+          <div className="mb-6 space-y-1 text-sm text-gray-400">
+            <p>{Number.isFinite(avgScore) ? `Средняя оценка ${avgScore.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} из 10` : 'Оценок пока нет'}</p>
+            {anime.stats && (
+              <p>Оценок {anime.stats.scores_count} · В списках {anime.stats.in_lists_count}</p>
+            )}
+          </div>
+
+          <CollectionControl anime={anime} />
         </div>
       </div>
 

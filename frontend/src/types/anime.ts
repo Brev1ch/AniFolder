@@ -1,21 +1,34 @@
 export interface Anime {
   id: number;
-  shikimori_id: number;
-  title_ru: string;
+  anilist_id: number;
+  mal_id: number | null;
+  title_ru: string | null;
   title_en: string;
-  kind: string;
+  kind: string | null;
   status: string;
-  episodes: number;
-  aired_on: string;
-  description: string;
-  poster_url: string;
+  episodes: number | null;
+  aired_on: string | null;
+  poster_url: string | null;
 }
 
 export interface Genre {
   id: number;
-  name_ru: string;
+  name_ru: string | null;
   name_en: string;
 }
+
+export interface AnimeDetail extends Anime {
+  description: string | null;
+  genres: Genre[];
+  stats: {
+    scores_count: number;
+    avg_score: string | null;
+    in_lists_count: number;
+  } | null;
+}
+
+export const displayTitle = (anime: Anime) => anime.title_ru ?? anime.title_en;
+export const displayGenre = (genre: Genre) => genre.name_ru ?? genre.name_en;
 
 export interface AnimeListResponse {
   items: Anime[];

@@ -12,6 +12,8 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  sessionVersion: number;
+  setTokens: (accessToken: string, refreshToken: string) => void;
   login: (user: User, accessToken: string, refreshToken: string) => void;
   logout: () => void;
 }
@@ -23,13 +25,18 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
+      sessionVersion: 0,
+      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
       login: (user, accessToken, refreshToken) =>
-        set({ user, accessToken, refreshToken, isAuthenticated: true }),
+        set((state) => ({ user, accessToken, refreshToken, isAuthenticated: true, sessionVersion: state.sessionVersion + 1 })),
       logout: () =>
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+        set((state) => ({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false, sessionVersion: state.sessionVersion + 1 })),
     }),
     {
       name: 'auth-storage',
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken === 'mock-access-token-123') state.logout();
+      },
     }
   )
 );
