@@ -102,6 +102,14 @@ async def upsert_entry(
         body.episodes_watched if body.episodes_watched is not None
         else (old.episodes_watched if old else 0)
     )
+    # Граница прогресса проверяется только для явно переданного значения:
+    # иначе смена статуса откатилась бы из-за прогресса, посаженного до правки каталога.
+    if body.episodes_watched is not None and anime.episodes is not None \
+            and body.episodes_watched > anime.episodes:
+        raise errors.AppError(
+            422, errors.VALIDATION_ERROR,
+            f"Прогресс {body.episodes_watched} больше числа эпизодов тайтла ({anime.episodes})",
+        )
 
     params = {
         "user_id": user_id,
@@ -191,7 +199,8 @@ async def get_user_list(
         select(UserAnime, Anime)
         .join(Anime, Anime.id == UserAnime.anime_id)
         .where(*filters)
-        .order_by(UserAnime.updated_at.desc())
+        # tiebreak по anime_id: при равных updated_at порядок страниц детерминирован
+        .order_by(UserAnime.updated_at.desc(), UserAnime.anime_id.desc())
         .offset((page - 1) * limit)
         .limit(limit)
     )).all()

@@ -99,6 +99,7 @@ async def test_put_anime_not_found(api: ApiTestContext) -> None:
     {"status": "watching", "score": 0},
     {"status": "watching", "score": 11},
     {"status": "watching", "episodes_watched": -1},
+    {"status": "watching", "episodes_watched": 221},  # у Наруто 220 эпизодов
     {"status": "unknown_status"},
 ])
 async def test_put_validation(api: ApiTestContext, body: dict) -> None:
@@ -308,6 +309,14 @@ async def test_profile_user_not_found(api: ApiTestContext) -> None:
     response = await api.client.get(f"{USERS_URL}/ghost")
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "USER_NOT_FOUND"
+
+
+@pytest.mark.parametrize("username", ["ab", "bad name", "кириллица", "x" * 33, "-bad"])
+async def test_profile_invalid_username_format(api: ApiTestContext, username: str) -> None:
+    """Формат username из контракта ^[A-Za-z0-9_]{3,32}$: мусор отсекается 422 до БД."""
+    response = await api.client.get(f"{USERS_URL}/{username}")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 async def test_profile_lookup_case_insensitive(api: ApiTestContext) -> None:
