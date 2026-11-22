@@ -48,7 +48,8 @@ class Review(Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
+    # NULL — автор удалил аккаунт; отзыв остаётся (миграция 0002: SET NULL)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"))
     anime_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("anime.id", ondelete="CASCADE"))
     score: Mapped[int] = mapped_column(SmallInteger)
     text: Mapped[str] = mapped_column(Text)

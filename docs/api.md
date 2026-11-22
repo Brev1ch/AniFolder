@@ -232,7 +232,7 @@ ML исключает историю на момент обучения; backend
 Ответ: `{items: UserListAnime[], total, page, limit}`, элемент — AnimeCard + поля записи
 списка (см. `UserListAnime` на фронте).
 
-## Лента активности ✅ (запись: события списка; события отзывов/тем/комментариев — этап 4–5)
+## Лента активности ✅
 
 ### GET /users/{username}/activity?cursor=...&limit=20
 
@@ -268,30 +268,39 @@ ML исключает историю на момент обучения; backend
 
 `anime` — `null`, когда событие не про тайтл.
 
-## Отзывы и сообщество 🚧 (этап 4–5)
+## Отзывы и сообщество ✅
 
 ### GET /anime/{id}/reviews?page=1&limit=20
 
 `{items: Review[], total, page, limit}`; Review: `{id, user_id, username, score, text, created_at}`.
+Новые первыми. Автор удалил аккаунт — отзыв остаётся: `user_id` = null,
+`username` = `"deleted_user"`. Нет такого тайтла — 404 `ANIME_NOT_FOUND`.
 
 ### POST /anime/{id}/reviews
 
 Запрос: `{ "score": 9, "text": "..." }` (текст 1–20000, один отзыв на тайтл на пользователя).
-Ошибки: 401 · 404 `ANIME_NOT_FOUND` · 409 `REVIEW_EXISTS`.
+Ответ 201. Ошибки: 401 · 404 `ANIME_NOT_FOUND` · 409 `REVIEW_EXISTS`.
 
 ### PATCH /reviews/{id} · DELETE /reviews/{id}
 
-Только автор. Ошибки: 401 · 403 `FORBIDDEN` · 404 `REVIEW_NOT_FOUND`.
+Только автор. PATCH меняет только переданные поля (`score` и/или `text`); пустой
+PATCH или явный null поля — 422. DELETE отвечает `{"ok": true}`.
+Ошибки: 401 · 403 `FORBIDDEN` · 404 `REVIEW_NOT_FOUND`.
 
 ### GET /topics?anime_id=...&page=1&limit=20 · POST /topics
 
 Topic: `{id, author_id, username, anime_id, title, body, comments_count, created_at, last_comment_at}`.
-Сортировка — по `last_comment_at DESC`.
+Сортировка — по `last_comment_at DESC` (поднимается новым комментарием; счётчики ведёт
+триггер БД). Удалённый автор: `author_id` = null, `username` = `"deleted_user"`.
+POST: 201; невалидный `anime_id` — 404 `ANIME_NOT_FOUND`.
 
 ### GET /topics/{id}/comments?cursor=...&limit=50 · POST /topics/{id}/comments
 
 Comment: `{id, topic_id, author_id, username, parent_id, body, created_at}`.
-`parent_id` — ответ на комментарий той же темы (проверяет БД).
+`parent_id` — ответ на комментарий той же темы (проверяет БД); чужая тема или
+несуществующий родитель — 422 `VALIDATION_ERROR`. Новые первыми, курсорная
+пагинация как у ленты активности. Удалённый автор: `author_id` = null,
+`username` = `"deleted_user"`. POST: 201; нет такой темы — 404 `TOPIC_NOT_FOUND`.
 
 ## Совместимость вкусов 🚧 (этап 6)
 

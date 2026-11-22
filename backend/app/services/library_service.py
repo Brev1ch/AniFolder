@@ -5,11 +5,7 @@
 принадлежат одному пользователю.
 """
 
-import base64
-import binascii
-import json
 import logging
-from datetime import datetime
 
 from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +26,7 @@ from app.schemas.library import (
     UserProfileResponse,
     UserProfileStats,
 )
+from app.services.cursor import decode_cursor, encode_cursor
 
 logger = logging.getLogger(__name__)
 
@@ -222,20 +219,6 @@ async def get_user_list(
     return UserAnimeListResponse(items=items, total=total or 0, page=page, limit=limit)
 
 
-def _encode_cursor(created_at: datetime, item_id: int) -> str:
-    payload = json.dumps({"c": created_at.isoformat(), "i": item_id}, separators=(",", ":"))
-    return base64.urlsafe_b64encode(payload.encode("ascii")).decode("ascii")
-
-
-def _decode_cursor(cursor: str) -> tuple[datetime, int]:
-    """Курсор opaque (base64url JSON). Любая порча — 422, а не 500."""
-    try:
-        raw = json.loads(base64.urlsafe_b64decode(cursor.encode("ascii")).decode("ascii"))
-        return datetime.fromisoformat(raw["c"]), int(raw["i"])
-    except (ValueError, KeyError, TypeError, UnicodeDecodeError, binascii.Error):
-        raise errors.AppError(422, errors.VALIDATION_ERROR, "Невалидный курсор") from None
-
-
 async def get_activity(
     session: AsyncSession, username: str, cursor: str | None, limit: int
 ) -> ActivityFeedResponse:
@@ -244,7 +227,7 @@ async def get_activity(
 
     stmt = select(UserActivity).where(UserActivity.user_id == user.id)
     if cursor is not None:
-        cursor_created, cursor_id = _decode_cursor(cursor)
+        cursor_created, cursor_id = decode_cursor(cursor)
         stmt = stmt.where(
             tuple_(UserActivity.created_at, UserActivity.id) < (cursor_created, cursor_id)
         )
@@ -255,7 +238,7 @@ async def get_activity(
     next_cursor: str | None = None
     if len(rows) > limit:
         rows = rows[:limit]
-        next_cursor = _encode_cursor(rows[-1].created_at, rows[-1].id)
+        next_cursor = encode_cursor(rows[-1].created_at, rows[-1].id)
 
     anime_ids = {row.anime_id for row in rows if row.anime_id is not None}
     cards: dict[int, AnimeCard] = {}
