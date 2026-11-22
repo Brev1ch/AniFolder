@@ -67,8 +67,9 @@ async def test_compatibility_below_threshold(api: ApiTestContext) -> None:
     me = await _register(api, "viewer")
     await _register(api, "other")
     anime = await _seed_anime(api, 4)
-    await _rate(api, "viewer", {a.id: i + 5 for i, a in enumerate(anime)})
-    await _rate(api, "other", {a.id: 9 for a in anime})
+    # обе выборки с ненулевой дисперсией: null может дать только порог, а не статистика
+    await _rate(api, "viewer", {a.id: [5, 6, 7, 8][i] for i, a in enumerate(anime)})
+    await _rate(api, "other", {a.id: [8, 7, 6, 5][i] for i, a in enumerate(anime)})
 
     response = await api.client.get(COMPAT_URL.format(username="other"), headers=_auth(me))
 
@@ -81,19 +82,19 @@ async def test_compatibility_perfect_match_and_mismatch(api: ApiTestContext) -> 
     me = await _register(api, "viewer")
     twin = await _register(api, "twin")
     foe = await _register(api, "foe")
-    anime = await _seed_anime(api, 6)
+    anime = await _seed_anime(api, 5)  # ровно порог: 5 общих — значение считается
 
     # twin: те же оценки — корреляция +1 (линейная зависимость y = x)
-    await _rate(api, "viewer", {a.id: [5, 6, 7, 8, 9, 10][i] for i, a in enumerate(anime)})
-    await _rate(api, "twin", {a.id: [5, 6, 7, 8, 9, 10][i] for i, a in enumerate(anime)})
-    # foe: зеркально — корреляция -1 (y = 15 - x)
-    await _rate(api, "foe", {a.id: [10, 9, 8, 7, 6, 5][i] for i, a in enumerate(anime)})
+    await _rate(api, "viewer", {a.id: [5, 6, 7, 8, 9][i] for i, a in enumerate(anime)})
+    await _rate(api, "twin", {a.id: [5, 6, 7, 8, 9][i] for i, a in enumerate(anime)})
+    # foe: зеркально — корреляция -1 (y = 14 - x)
+    await _rate(api, "foe", {a.id: [9, 8, 7, 6, 5][i] for i, a in enumerate(anime)})
 
     same = await api.client.get(COMPAT_URL.format(username="twin"), headers=_auth(me))
-    assert same.json() == {"common_titles": 6, "compatibility": 1.0}
+    assert same.json() == {"common_titles": 5, "compatibility": 1.0}
 
     opposite = await api.client.get(COMPAT_URL.format(username="foe"), headers=_auth(me))
-    assert opposite.json() == {"common_titles": 6, "compatibility": -1.0}
+    assert opposite.json() == {"common_titles": 5, "compatibility": -1.0}
 
 
 async def test_compatibility_ignores_unilateral_titles(api: ApiTestContext) -> None:
