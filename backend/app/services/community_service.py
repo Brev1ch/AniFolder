@@ -19,6 +19,7 @@ from app.models.enums import ActivityType
 from app.models.library import UserActivity
 from app.models.user import User
 from app.schemas.community import (
+    DELETED_USERNAME,
     CommentCreate,
     CommentFeedResponse,
     CommentResponse,
@@ -58,7 +59,8 @@ async def list_topics(
 
     items = [
         TopicResponse(
-            id=topic.id, author_id=topic.author_id, username=username,
+            id=topic.id, author_id=topic.author_id,
+            username=username if topic.author_id is not None else DELETED_USERNAME,
             anime_id=topic.anime_id, title=topic.title, body=topic.body,
             comments_count=topic.comments_count,
             created_at=topic.created_at, last_comment_at=topic.last_comment_at,
@@ -94,15 +96,15 @@ async def create_topic(session: AsyncSession, user: User, body: TopicCreate) -> 
 async def list_comments(
     session: AsyncSession, topic_id: int, cursor: str | None, limit: int
 ) -> CommentFeedResponse:
-    """Комментарии темы от старых к новым (порядок чтения обсуждения). Курсор — по (created_at, id)."""
+    """Комментарии темы, новые первыми. Курсор — по (created_at, id), как у ленты активности."""
     await _get_topic(session, topic_id)
 
     stmt = select(Comment).where(Comment.topic_id == topic_id)
     if cursor is not None:
         cursor_created, cursor_id = decode_cursor(cursor)
-        stmt = stmt.where(tuple_(Comment.created_at, Comment.id) > (cursor_created, cursor_id))
+        stmt = stmt.where(tuple_(Comment.created_at, Comment.id) < (cursor_created, cursor_id))
     rows = list((await session.scalars(
-        stmt.order_by(Comment.created_at, Comment.id).limit(limit + 1)
+        stmt.order_by(Comment.created_at.desc(), Comment.id.desc()).limit(limit + 1)
     )).all())
 
     next_cursor: str | None = None
@@ -120,7 +122,8 @@ async def list_comments(
     items = [
         CommentResponse(
             id=row.id, topic_id=row.topic_id, author_id=row.author_id,
-            username=usernames.get(row.author_id), parent_id=row.parent_id,
+            username=usernames.get(row.author_id) if row.author_id is not None else DELETED_USERNAME,
+            parent_id=row.parent_id,
             body=row.body, created_at=row.created_at,
         )
         for row in rows

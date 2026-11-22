@@ -317,7 +317,7 @@ async def test_comment_parent_must_be_in_same_topic(api: ApiTestContext) -> None
     assert missing_parent.status_code == 422
 
 
-async def test_comments_pagination_oldest_first(api: ApiTestContext) -> None:
+async def test_comments_pagination_newest_first(api: ApiTestContext) -> None:
     token = await _register(api, "author")
     topic_id = await _make_topic(api, token)
     # детерминированные таймстампы в обход now() транзакции
@@ -346,31 +346,32 @@ async def test_comments_pagination_oldest_first(api: ApiTestContext) -> None:
 
     all_response = await api.client.get(f"/api/v1/topics/{topic_id}/comments?limit=50")
     bodies = [c["body"] for c in all_response.json()["items"]]
-    assert bodies == [f"комментарий {i}" for i in range(5)]  # от старых к новым
+    assert bodies == [f"комментарий {i}" for i in range(4, -1, -1)]  # новые первыми
 
 
 async def test_deleted_author_behavior(api: ApiTestContext) -> None:
-    """Удаление автора: темы и комментарии остаются с author NULL (SET NULL),
-    отзывы удаляются каскадно — тест фиксирует текущую схему (вопрос к БД: так ли надо)."""
+    """Удаление автора: отзывы/темы/комментарии остаются, автор помечается deleted_user."""
     token = await _register(api, "gone")
     anime = (await _seed_anime(api))[0]
     await api.client.post(f"/api/v1/anime/{anime.id}/reviews",
-                          json={"score": 9, "text": "отзыв исчезнет"}, headers=_auth(token))
+                          json={"score": 9, "text": "отзыв останется"}, headers=_auth(token))
     topic_id = await _make_topic(api, token, "Тема останется")
     await api.client.post(f"/api/v1/topics/{topic_id}/comments",
                           json={"body": "комментарий останется"}, headers=_auth(token))
 
     user_id = (await api.session.scalar(select(User).where(User.username == "gone"))).id
-    await api.session.delete(await api.session.get(User, user_id))  # ON DELETE у схемы
+    await api.session.delete(await api.session.get(User, user_id))  # ON DELETE SET NULL
     await api.session.flush()
 
     reviews = await api.client.get(f"/api/v1/anime/{anime.id}/reviews")
-    assert reviews.json()["total"] == 0  # CASCADE
+    item = reviews.json()["items"][0]
+    assert item["user_id"] is None and item["username"] == "deleted_user"
+    assert item["text"] == "отзыв останется"
 
     topics = await api.client.get("/api/v1/topics")
     assert topics.json()["items"][0]["author_id"] is None
-    assert topics.json()["items"][0]["username"] is None
+    assert topics.json()["items"][0]["username"] == "deleted_user"
 
     comments = await api.client.get(f"/api/v1/topics/{topic_id}/comments")
     assert comments.json()["items"][0]["author_id"] is None
-    assert comments.json()["items"][0]["username"] is None
+    assert comments.json()["items"][0]["username"] == "deleted_user"

@@ -4,6 +4,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# Автор удалил аккаунт: его отзывы/темы/комментарии остаются, в username приходит
+# этот маркер (user_id — null). Решение тимлида, контракт docs/api.md.
+DELETED_USERNAME = "deleted_user"
+
 
 class ReviewCreate(BaseModel):
     """Тело POST /anime/{id}/reviews. Один отзыв на тайтл на пользователя (409 при повторе)."""
@@ -86,7 +90,7 @@ class CommentResponse(BaseModel):
 
 
 class CommentFeedResponse(BaseModel):
-    """Курсорная выдача комментариев: читаются от старых к новым; next_cursor = null в конце."""
+    """Курсорная выдача комментариев: новые первыми; next_cursor = null в конце."""
 
     items: list[CommentResponse]
     next_cursor: str | None

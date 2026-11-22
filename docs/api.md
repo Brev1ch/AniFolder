@@ -273,9 +273,8 @@ ML исключает историю на момент обучения; backend
 ### GET /anime/{id}/reviews?page=1&limit=20
 
 `{items: Review[], total, page, limit}`; Review: `{id, user_id, username, score, text, created_at}`.
-Новые первыми. `user_id`/`username` — null, если автор удалил аккаунт (у отзывов тогда
-весь отзыв удаляется каскадом, null бывает только для тем/комментариев). Нет такого
-тайтла — 404 `ANIME_NOT_FOUND`.
+Новые первыми. Автор удалил аккаунт — отзыв остаётся: `user_id` = null,
+`username` = `"deleted_user"`. Нет такого тайтла — 404 `ANIME_NOT_FOUND`.
 
 ### POST /anime/{id}/reviews
 
@@ -292,15 +291,16 @@ PATCH или явный null поля — 422. DELETE отвечает `{"ok": t
 
 Topic: `{id, author_id, username, anime_id, title, body, comments_count, created_at, last_comment_at}`.
 Сортировка — по `last_comment_at DESC` (поднимается новым комментарием; счётчики ведёт
-триггер БД). POST: 201; невалидный `anime_id` — 404 `ANIME_NOT_FOUND`.
+триггер БД). Удалённый автор: `author_id` = null, `username` = `"deleted_user"`.
+POST: 201; невалидный `anime_id` — 404 `ANIME_NOT_FOUND`.
 
 ### GET /topics/{id}/comments?cursor=...&limit=50 · POST /topics/{id}/comments
 
 Comment: `{id, topic_id, author_id, username, parent_id, body, created_at}`.
 `parent_id` — ответ на комментарий той же темы (проверяет БД); чужая тема или
-несуществующий родитель — 422 `VALIDATION_ERROR`. Читаются от старых к новым,
-курсорная пагинация как у ленты активности. POST: 201; нет такой темы — 404
-`TOPIC_NOT_FOUND`.
+несуществующий родитель — 422 `VALIDATION_ERROR`. Новые первыми, курсорная
+пагинация как у ленты активности. Удалённый автор: `author_id` = null,
+`username` = `"deleted_user"`. POST: 201; нет такой темы — 404 `TOPIC_NOT_FOUND`.
 
 ## Совместимость вкусов 🚧 (этап 6)
 

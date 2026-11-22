@@ -15,7 +15,13 @@ from app.models.anime import Anime
 from app.models.enums import ActivityType
 from app.models.library import Review, UserActivity
 from app.models.user import User
-from app.schemas.community import ReviewCreate, ReviewListResponse, ReviewPatch, ReviewResponse
+from app.schemas.community import (
+    DELETED_USERNAME,
+    ReviewCreate,
+    ReviewListResponse,
+    ReviewPatch,
+    ReviewResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +61,8 @@ async def list_reviews(
 
     items = [
         ReviewResponse(
-            id=review.id, user_id=review.user_id, username=username,
+            id=review.id, user_id=review.user_id,
+            username=username if review.user_id is not None else DELETED_USERNAME,
             score=review.score, text=review.text, created_at=review.created_at,
         )
         for review, username in rows
