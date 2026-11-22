@@ -165,6 +165,10 @@
 Запрос PUT: `{ "status": "watching", "score": 9, "episodes_watched": 12 }`
 (`status`: `planned|watching|completed|on_hold|dropped`; `score` 1–10, опционально).
 
+Семантика опциональных полей: пропущенное поле сохраняет прежнее значение;
+явный `"score": null` снимает оценку; прогресс сбрасывается явным
+`"episodes_watched": 0`. `episodes_watched` больше числа эпизодов тайтла — 422.
+
 Ответ 200:
 
 ```json
@@ -178,7 +182,9 @@
 }
 ```
 
-Ошибки: 401 · 404 `ANIME_NOT_FOUND` · 422 `VALIDATION_ERROR` (оценка/прогресс вне диапазона).
+Ошибки: 401 · 404 `ANIME_NOT_FOUND` (нет такого тайтла) · 422 `VALIDATION_ERROR`
+(оценка/прогресс вне диапазона). DELETE дополнительно: 404 `LIST_ENTRY_NOT_FOUND`
+(тайтл есть в каталоге, но не в списке пользователя).
 
 ### GET /me/recommendations ✅
 
@@ -255,7 +261,7 @@ ML исключает историю на момент обучения; backend
 | `list_added` | `{ "status": "watching" }` | тайтла не было в списке |
 | `status_changed` | `{ "from": "planned", "to": "watching" }` | смена статуса у существующей записи |
 | `progress_updated` | `{ "episodes_watched": 12 }` | изменился прогресс (без смены статуса) |
-| `scored` | `{ "score": 9 }` | выставлена/изменена оценка |
+| `scored` | `{ "score": 9 }` или `{ "score": null }` | выставлена/изменена оценка; `null` — снята |
 | `reviewed` | `{ "review_id": 123 }` | опубликован отзыв |
 | `topic_created` | `{ "topic_id": 5 }` | создана тема (anime_id может быть null) |
 | `commented` | `{ "topic_id": 5, "comment_id": 77 }` | комментарий (anime_id может быть null) |
@@ -306,7 +312,7 @@ Comment: `{id, topic_id, author_id, username, parent_id, body, created_at}`.
 | 401 | `AUTHENTICATION_REQUIRED`, `INVALID_CREDENTIALS`, `TOKEN_EXPIRED`, `INVALID_TOKEN` | auth, защищённые роуты |
 | 401 | `INVALID_REFRESH_TOKEN`, `REFRESH_TOKEN_EXPIRED`, `REFRESH_TOKEN_REUSED` | /auth/refresh |
 | 403 | `FORBIDDEN` | чужой отзыв (этап 4) |
-| 404 | `ANIME_NOT_FOUND`, `USER_NOT_FOUND`, `REVIEW_NOT_FOUND`, `TOPIC_NOT_FOUND` | каталог, профили |
+| 404 | `ANIME_NOT_FOUND`, `USER_NOT_FOUND`, `LIST_ENTRY_NOT_FOUND`, `REVIEW_NOT_FOUND`, `TOPIC_NOT_FOUND` | каталог, профили, список |
 | 409 | `USERNAME_TAKEN`, `EMAIL_TAKEN`, `REVIEW_EXISTS` | register, отзывы |
 | 422 | `VALIDATION_ERROR` | везде, где тело/параметры |
 | 429 | `RATE_LIMITED` | /auth/login, /auth/register |

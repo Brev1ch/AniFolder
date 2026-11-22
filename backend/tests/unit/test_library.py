@@ -149,6 +149,46 @@ async def test_put_full_payload_overwrites(api: ApiTestContext) -> None:
     assert (data["status"], data["score"], data["episodes_watched"]) == ("completed", 10, 220)
 
 
+async def test_put_explicit_null_clears_score(api: ApiTestContext) -> None:
+    """Явный "score": null снимает оценку; пропущенное поле её сохраняет."""
+    token = (await _register(api))["access_token"]
+    anime = (await _seed_anime(api))[0]
+
+    await _put(api, token, anime.id, status="watching", score=8)
+    cleared = await _put(api, token, anime.id, status="watching", score=None)
+    assert cleared.status_code == 200
+    assert cleared.json()["score"] is None
+
+    user_id = (await api.session.scalar(select(User).where(User.username == "user1"))).id
+    events = await _activities(api, user_id)
+    assert events[-1].type == ActivityType.SCORED
+    assert events[-1].payload == {"score": None}
+
+
+async def test_put_score_change_after_clear_emits_again(api: ApiTestContext) -> None:
+    """После снятия новая оценка снова эмитит scored."""
+    token = (await _register(api))["access_token"]
+    anime = (await _seed_anime(api))[0]
+
+    await _put(api, token, anime.id, status="watching", score=8)
+    await _put(api, token, anime.id, status="watching", score=None)
+    await _put(api, token, anime.id, status="watching", score=6)
+
+    user_id = (await api.session.scalar(select(User).where(User.username == "user1"))).id
+    scored = [e for e in await _activities(api, user_id) if e.type == ActivityType.SCORED]
+    assert [e.payload for e in scored] == [{"score": 8}, {"score": None}, {"score": 6}]
+
+
+async def test_put_progress_reset_to_zero(api: ApiTestContext) -> None:
+    token = (await _register(api))["access_token"]
+    anime = (await _seed_anime(api))[0]
+
+    await _put(api, token, anime.id, status="watching", episodes_watched=7)
+    response = await _put(api, token, anime.id, status="watching", episodes_watched=0)
+
+    assert response.json()["episodes_watched"] == 0
+
+
 # ---------- события ленты при PUT ----------
 
 async def test_activity_list_added(api: ApiTestContext) -> None:
@@ -261,7 +301,7 @@ async def test_delete_not_in_list(api: ApiTestContext) -> None:
     anime = (await _seed_anime(api))[0]
     response = await api.client.delete(f"{ME_LIST_URL}/{anime.id}", headers=_auth(token))
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "ANIME_NOT_FOUND"
+    assert response.json()["error"]["code"] == "LIST_ENTRY_NOT_FOUND"
 
 
 async def test_delete_unknown_anime(api: ApiTestContext) -> None:

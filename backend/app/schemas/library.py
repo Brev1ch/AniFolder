@@ -11,8 +11,13 @@ from app.schemas.anime import AnimeCard
 
 
 class UserListEntryPut(BaseModel):
-    """Тело PUT /me/list/{anime_id}. Оценка и прогресс опциональны: при обновлении
-    записи пропущенные поля сохраняют прежнее значение, при создании — NULL и 0."""
+    """Тело PUT /me/list/{anime_id}.
+
+    Семантика полей (согласовано с тимлидом): пропущенное поле сохраняет
+    прежнее значение; явный ``"score": null`` снимает оценку; прогресс
+    сбрасывается явным ``episodes_watched: 0``. Различие «не передано / null»
+    видно через model_fields_set.
+    """
 
     status: ListStatus
     score: int | None = Field(default=None, ge=1, le=10)

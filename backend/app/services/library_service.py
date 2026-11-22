@@ -79,7 +79,8 @@ def _build_events(
         specs.append((ActivityType.STATUS_CHANGED, {"from": old.status.value, "to": new_status.value}))
     elif old.episodes_watched != new_episodes:
         specs.append((ActivityType.PROGRESS_UPDATED, {"episodes_watched": new_episodes}))
-    if new_score is not None and new_score != old.score:
+    # Оценка менялась в любую сторону, включая снятие (new_score=None)
+    if new_score != old.score:
         specs.append((ActivityType.SCORED, {"score": new_score}))
     return [UserActivity(user_id=user_id, anime_id=anime_id, type=t, payload=p) for t, p in specs]
 
@@ -87,7 +88,8 @@ def _build_events(
 async def upsert_entry(
     session: AsyncSession, user_id: int, anime_id: int, body: UserListEntryPut
 ) -> UserListEntryResponse:
-    """Добавить в список или обновить запись; пропущенные поля сохраняют прежнее значение."""
+    """Добавить в список или обновить запись. Пропущенные поля сохраняют прежнее
+    значение; явный score=null снимает оценку (см. UserListEntryPut)."""
     anime = await session.scalar(select(Anime).where(Anime.id == anime_id))
     if anime is None:
         raise errors.AppError(404, errors.ANIME_NOT_FOUND, f"Аниме с id={anime_id} не найдено")
@@ -97,7 +99,11 @@ async def upsert_entry(
     )
 
     new_status = body.status
-    new_score = body.score if body.score is not None else (old.score if old else None)
+    # "score" в model_fields_set: не передан — сохранить прежнее; передан null — снять
+    if "score" in body.model_fields_set:
+        new_score: int | None = body.score
+    else:
+        new_score = old.score if old else None
     new_episodes = (
         body.episodes_watched if body.episodes_watched is not None
         else (old.episodes_watched if old else 0)
@@ -149,7 +155,7 @@ async def remove_entry(session: AsyncSession, user_id: int, anime_id: int) -> No
         select(UserAnime).where(UserAnime.user_id == user_id, UserAnime.anime_id == anime_id)
     )
     if entry is None:
-        raise errors.AppError(404, errors.ANIME_NOT_FOUND, f"Аниме с id={anime_id} не найдено в списке")
+        raise errors.AppError(404, errors.LIST_ENTRY_NOT_FOUND, f"Аниме с id={anime_id} не найдено в списке")
     await session.delete(entry)
     await session.commit()
 
