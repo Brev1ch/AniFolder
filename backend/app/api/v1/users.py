@@ -5,9 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.models.enums import ListStatus
-from app.schemas.library import ActivityFeedResponse, UserAnimeListResponse, UserProfileResponse
+from app.models.user import User
+from app.schemas.library import (
+    ActivityFeedResponse,
+    CompatibilityResponse,
+    UserAnimeListResponse,
+    UserProfileResponse,
+)
 from app.services import library_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -46,3 +53,13 @@ async def get_user_activity(
 ) -> ActivityFeedResponse:
     """Лента активности, курсорная пагинация; next_cursor = null — записи кончились."""
     return await library_service.get_activity(session, username, cursor, limit)
+
+
+@router.get("/{username}/compatibility", response_model=CompatibilityResponse)
+async def get_user_compatibility(
+    username: UsernamePath,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CompatibilityResponse:
+    """Совпадение вкусов с текущим пользователем: корреляция по общим оценкам."""
+    return await library_service.get_compatibility(session, user, username)

@@ -84,6 +84,13 @@ class UserProfileResponse(BaseModel):
     stats: UserProfileStats
 
 
+class CompatibilityResponse(BaseModel):
+    """Совпадение вкусов двух пользователей: корреляция Пирсона по общим оценкам."""
+
+    common_titles: int
+    compatibility: float | None
+
+
 class ActivityItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

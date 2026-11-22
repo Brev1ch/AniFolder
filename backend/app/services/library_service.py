@@ -6,9 +6,11 @@
 """
 
 import logging
+import statistics
 
 from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.core import errors
 from app.models.anime import Anime
@@ -19,6 +21,7 @@ from app.schemas.anime import AnimeCard
 from app.schemas.library import (
     ActivityFeedResponse,
     ActivityItemResponse,
+    CompatibilityResponse,
     UserAnimeListResponse,
     UserListAnime,
     UserListEntryPut,
@@ -29,6 +32,9 @@ from app.schemas.library import (
 from app.services.cursor import decode_cursor, encode_cursor
 
 logger = logging.getLogger(__name__)
+
+# Минимум общих оценённых тайтлов, ниже которого compatibility не считаем (null)
+COMPATIBILITY_MIN_COMMON = 5
 
 # Upsert записи списка. WHERE у DO UPDATE отсекает записи без изменений: тогда
 # RETURNING пустой, триггер dirty-статистики не стреляет впустую, а запись читаем как есть.
@@ -254,3 +260,42 @@ async def get_activity(
         for row in rows
     ]
     return ActivityFeedResponse(items=items, next_cursor=next_cursor)
+
+
+async def get_compatibility(
+    session: AsyncSession, user: User, username: str
+) -> CompatibilityResponse:
+    """Совпадение вкусов: корреляция Пирсона по общим оценкам с пользователем username.
+
+    Учитываются тайтлы, оценённые обоими (score не NULL). Меньше COMPATIBILITY_MIN_COMMON
+    общих оценок — compatibility null. Постоянные оценки одного из двух (нулевая
+    дисперсия) тоже дают null: корреляция не определена.
+    """
+    other = await _get_user_by_username(session, username)
+
+    mine = aliased(UserAnime)
+    theirs = aliased(UserAnime)
+    pairs = (await session.execute(
+        select(mine.score, theirs.score)
+        .select_from(mine)
+        .join(theirs, theirs.anime_id == mine.anime_id)
+        .where(
+            mine.user_id == user.id,
+            theirs.user_id == other.id,
+            mine.score.is_not(None),
+            theirs.score.is_not(None),
+        )
+    )).all()
+
+    common = len(pairs)
+    if common < COMPATIBILITY_MIN_COMMON:
+        return CompatibilityResponse(common_titles=common, compatibility=None)
+
+    xs = [p[0] for p in pairs]
+    ys = [p[1] for p in pairs]
+    try:
+        value = statistics.correlation(xs, ys)
+    except statistics.StatisticsError:
+        # у одного из двух все оценки одинаковые — корреляция не определена
+        return CompatibilityResponse(common_titles=common, compatibility=None)
+    return CompatibilityResponse(common_titles=common, compatibility=round(value, 2))
