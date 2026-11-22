@@ -34,7 +34,7 @@ async def post_review(
     session: AsyncSession = Depends(get_session),
 ) -> ReviewResponse:
     """Написать отзыв; повтор на тот же тайтл — 409 REVIEW_EXISTS."""
-    return await review_service.create_review(session, user.id, anime_id, body)
+    return await review_service.create_review(session, user, anime_id, body)
 
 
 @router.patch("/reviews/{review_id}", response_model=ReviewResponse)
@@ -45,7 +45,7 @@ async def patch_review(
     session: AsyncSession = Depends(get_session),
 ) -> ReviewResponse:
     """Изменить отзыв (только автор); меняются только переданные поля."""
-    return await review_service.patch_review(session, user.id, review_id, body)
+    return await review_service.patch_review(session, user, review_id, body)
 
 
 @router.delete("/reviews/{review_id}")

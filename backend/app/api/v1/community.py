@@ -39,7 +39,7 @@ async def post_topic(
     session: AsyncSession = Depends(get_session),
 ) -> TopicResponse:
     """Создать тему; без anime_id — общая, не привязанная к тайтлу."""
-    return await community_service.create_topic(session, user.id, body)
+    return await community_service.create_topic(session, user, body)
 
 
 @router.get("/topics/{topic_id}/comments", response_model=CommentFeedResponse)
@@ -61,4 +61,4 @@ async def post_comment(
     session: AsyncSession = Depends(get_session),
 ) -> CommentResponse:
     """Написать комментарий; parent_id — ответ на комментарий той же темы."""
-    return await community_service.create_comment(session, user.id, topic_id, body)
+    return await community_service.create_comment(session, user, topic_id, body)

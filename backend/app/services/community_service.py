@@ -68,24 +68,23 @@ async def list_topics(
     return TopicListResponse(items=items, total=total or 0, page=page, limit=limit)
 
 
-async def create_topic(session: AsyncSession, user_id: int, body: TopicCreate) -> TopicResponse:
+async def create_topic(session: AsyncSession, user: User, body: TopicCreate) -> TopicResponse:
     if body.anime_id is not None:
         anime_exists = await session.scalar(select(Anime.id).where(Anime.id == body.anime_id))
         if anime_exists is None:
             raise errors.AppError(404, errors.ANIME_NOT_FOUND, f"Аниме с id={body.anime_id} не найдено")
 
-    topic = Topic(author_id=user_id, anime_id=body.anime_id, title=body.title, body=body.body)
+    topic = Topic(author_id=user.id, anime_id=body.anime_id, title=body.title, body=body.body)
     session.add(topic)
     await session.flush()
     session.add(UserActivity(
-        user_id=user_id, anime_id=body.anime_id,
+        user_id=user.id, anime_id=body.anime_id,
         type=ActivityType.TOPIC_CREATED, payload={"topic_id": topic.id},
     ))
     await session.commit()
 
-    username = await session.scalar(select(User.username).where(User.id == user_id))
     return TopicResponse(
-        id=topic.id, author_id=user_id, username=username,
+        id=topic.id, author_id=user.id, username=user.username,
         anime_id=topic.anime_id, title=topic.title, body=topic.body,
         comments_count=topic.comments_count,
         created_at=topic.created_at, last_comment_at=topic.last_comment_at,
@@ -130,12 +129,12 @@ async def list_comments(
 
 
 async def create_comment(
-    session: AsyncSession, user_id: int, topic_id: int, body: CommentCreate
+    session: AsyncSession, user: User, topic_id: int, body: CommentCreate
 ) -> CommentResponse:
     topic = await _get_topic(session, topic_id)
 
     comment = Comment(
-        topic_id=topic_id, author_id=user_id, parent_id=body.parent_id, body=body.body
+        topic_id=topic_id, author_id=user.id, parent_id=body.parent_id, body=body.body
     )
     session.add(comment)
     try:
@@ -150,14 +149,13 @@ async def create_comment(
         ) from None
 
     session.add(UserActivity(
-        user_id=user_id, anime_id=topic.anime_id,
+        user_id=user.id, anime_id=topic.anime_id,
         type=ActivityType.COMMENTED,
         payload={"topic_id": topic_id, "comment_id": comment.id},
     ))
     await session.commit()
 
-    username = await session.scalar(select(User.username).where(User.id == user_id))
     return CommentResponse(
-        id=comment.id, topic_id=topic_id, author_id=user_id, username=username,
+        id=comment.id, topic_id=topic_id, author_id=user.id, username=user.username,
         parent_id=comment.parent_id, body=comment.body, created_at=comment.created_at,
     )

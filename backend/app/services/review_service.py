@@ -7,6 +7,7 @@
 import logging
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import errors
@@ -63,59 +64,65 @@ async def list_reviews(
 
 
 async def create_review(
-    session: AsyncSession, user_id: int, anime_id: int, body: ReviewCreate
+    session: AsyncSession, user: User, anime_id: int, body: ReviewCreate
 ) -> ReviewResponse:
     anime_exists = await session.scalar(select(Anime.id).where(Anime.id == anime_id))
     if anime_exists is None:
         raise errors.AppError(404, errors.ANIME_NOT_FOUND, f"Аниме с id={anime_id} не найдено")
 
     existing = await session.scalar(
-        select(Review.id).where(Review.user_id == user_id, Review.anime_id == anime_id)
+        select(Review.id).where(Review.user_id == user.id, Review.anime_id == anime_id)
     )
     if existing is not None:
         raise errors.AppError(409, errors.REVIEW_EXISTS, "Отзыв на этот тайтл уже есть")
 
-    review = Review(user_id=user_id, anime_id=anime_id, score=body.score, text=body.text)
+    review = Review(user_id=user.id, anime_id=anime_id, score=body.score, text=body.text)
     session.add(review)
-    await session.flush()
+    try:
+        await session.flush()
+    except IntegrityError:
+        # Параллельный POST прошёл предпроверку одновременно: unique reviews_one_per_anime
+        await session.rollback()
+        raise errors.AppError(409, errors.REVIEW_EXISTS, "Отзыв на этот тайтл уже есть") from None
     session.add(UserActivity(
-        user_id=user_id, anime_id=anime_id,
+        user_id=user.id, anime_id=anime_id,
         type=ActivityType.REVIEWED, payload={"review_id": review.id},
     ))
     await session.commit()
 
-    username = await session.scalar(select(User.username).where(User.id == user_id))
     return ReviewResponse(
-        id=review.id, user_id=user_id, username=username,
+        id=review.id, user_id=user.id, username=user.username,
         score=review.score, text=review.text, created_at=review.created_at,
     )
 
 
 async def patch_review(
-    session: AsyncSession, user_id: int, review_id: int, body: ReviewPatch
+    session: AsyncSession, user: User, review_id: int, body: ReviewPatch
 ) -> ReviewResponse:
     review = await _get_review(session, review_id)
-    _check_author(review, user_id)
+    _check_author(review, user.id)
 
-    if body.is_empty():
+    provided = body.model_fields_set
+    if not provided:
         raise errors.AppError(422, errors.VALIDATION_ERROR, "Пустой PATCH: передайте score и/или text")
+    null_fields = [f for f in provided if getattr(body, f) is None]
+    if null_fields:
+        raise errors.AppError(
+            422, errors.VALIDATION_ERROR,
+            f"Поля не могут быть null: {', '.join(sorted(null_fields))}",
+        )
 
-    if "score" in body.model_fields_set:
-        if body.score is None:
-            raise errors.AppError(422, errors.VALIDATION_ERROR, "score не может быть null")
+    if "score" in provided:
         review.score = body.score
-    if "text" in body.model_fields_set:
-        if body.text is None:
-            raise errors.AppError(422, errors.VALIDATION_ERROR, "text не может быть null")
+    if "text" in provided:
         review.text = body.text
     # updated_at обновляет триггер set_updated_at
     await session.flush()
     await session.refresh(review, attribute_names=["updated_at"])
     await session.commit()
 
-    username = await session.scalar(select(User.username).where(User.id == user_id))
     return ReviewResponse(
-        id=review.id, user_id=user_id, username=username,
+        id=review.id, user_id=user.id, username=user.username,
         score=review.score, text=review.text, created_at=review.created_at,
     )
 

@@ -149,6 +149,12 @@ async def test_patch_review_author_only(api: ApiTestContext) -> None:
     empty = await api.client.patch(f"/api/v1/reviews/{review_id}", json={}, headers=_auth(author))
     assert empty.status_code == 422
 
+    null_field = await api.client.patch(
+        f"/api/v1/reviews/{review_id}", json={"text": None}, headers=_auth(author)
+    )
+    assert null_field.status_code == 422
+    assert "text" in null_field.json()["error"]["message"]
+
     patched = await api.client.patch(
         f"/api/v1/reviews/{review_id}", json={"score": 8}, headers=_auth(author)
     )

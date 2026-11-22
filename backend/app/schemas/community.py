@@ -18,9 +18,6 @@ class ReviewPatch(BaseModel):
     score: int | None = Field(default=None, ge=1, le=10)
     text: str | None = Field(default=None, min_length=1, max_length=20000)
 
-    def is_empty(self) -> bool:
-        return self.score is None and self.text is None
-
 
 class ReviewResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

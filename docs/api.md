@@ -232,7 +232,7 @@ ML исключает историю на момент обучения; backend
 Ответ: `{items: UserListAnime[], total, page, limit}`, элемент — AnimeCard + поля записи
 списка (см. `UserListAnime` на фронте).
 
-## Лента активности ✅ (запись: события списка; события отзывов/тем/комментариев — этап 4–5)
+## Лента активности ✅
 
 ### GET /users/{username}/activity?cursor=...&limit=20
 
