@@ -1,0 +1,629 @@
+
+=== list/status=completed/page=1 ===
+Source: backend/app/services/library_service.py:196-225
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user1',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.007..0.008 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user1'::text)
+  Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=18
+Planning Time: 0.071 ms
+Execution Time: 0.017 ms
+
+Statement 2
+SELECT count(*) AS count_1
+FROM user_anime
+WHERE user_anime.user_id = $1::BIGINT AND user_anime.status = $2::list_status
+Parameters: (1, 'completed')
+Aggregate  (cost=33.25..33.26 rows=1 width=8) (actual time=0.012..0.012 rows=1 loops=1)
+  Buffers: shared hit=4
+  ->  Index Only Scan using user_anime_user_status_idx on user_anime  (cost=0.41..33.22 rows=15 width=0) (actual time=0.007..0.010 rows=12 loops=1)
+        Index Cond: ((user_id = '1'::bigint) AND (status = 'completed'::list_status))
+        Heap Fetches: 12
+        Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.041 ms
+Execution Time: 0.024 ms
+
+Statement 3
+SELECT user_anime.user_id, user_anime.anime_id, user_anime.status, user_anime.score, user_anime.episodes_watched, user_anime.created_at, user_anime.updated_at, anime.id, anime.anilist_id, anime.mal_id, anime.title_ru, anime.title_en, anime.kind, anime.status AS status_1, anime.episodes, anime.aired_on, anime.description, anime.poster_url, anime.synced_at
+FROM user_anime JOIN anime ON anime.id = user_anime.anime_id
+WHERE user_anime.user_id = $1::BIGINT AND user_anime.status = $2::list_status ORDER BY user_anime.updated_at DESC, user_anime.anime_id DESC
+ LIMIT $3::INTEGER OFFSET $4::INTEGER
+Parameters: (1, 'completed', 20, 0)
+Limit  (cost=53.02..53.06 rows=15 width=711) (actual time=0.077..0.079 rows=12 loops=1)
+  Buffers: shared hit=17
+  ->  Sort  (cost=53.02..53.06 rows=15 width=711) (actual time=0.077..0.078 rows=12 loops=1)
+        Sort Key: user_anime.updated_at DESC, user_anime.anime_id DESC
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=17
+        ->  Hash Join  (cost=33.40..52.73 rows=15 width=711) (actual time=0.012..0.070 rows=12 loops=1)
+              Hash Cond: (anime.id = user_anime.anime_id)
+              Buffers: shared hit=17
+              ->  Seq Scan on anime  (cost=0.00..18.00 rows=500 width=669) (actual time=0.003..0.035 rows=500 loops=1)
+                    Buffers: shared hit=13
+              ->  Hash  (cost=33.22..33.22 rows=15 width=42) (actual time=0.006..0.007 rows=12 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                    Buffers: shared hit=4
+                    ->  Index Scan using user_anime_user_status_idx on user_anime  (cost=0.41..33.22 rows=15 width=42) (actual time=0.003..0.005 rows=12 loops=1)
+                          Index Cond: ((user_id = '1'::bigint) AND (status = 'completed'::list_status))
+                          Buffers: shared hit=4
+Planning:
+  Buffers: shared hit=296
+Planning Time: 0.337 ms
+Execution Time: 0.122 ms
+
+=== list/all-statuses/page=1 ===
+Source: backend/app/services/library_service.py:196-225
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user1',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.007..0.008 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user1'::text)
+  Buffers: shared hit=3
+Planning Time: 0.034 ms
+Execution Time: 0.014 ms
+
+Statement 2
+SELECT count(*) AS count_1
+FROM user_anime
+WHERE user_anime.user_id = $1::BIGINT
+Parameters: (1,)
+Aggregate  (cost=73.82..73.83 rows=1 width=8) (actual time=0.042..0.042 rows=1 loops=1)
+  Buffers: shared hit=82
+  ->  Index Only Scan using user_anime_pkey on user_anime  (cost=0.29..73.72 rows=39 width=0) (actual time=0.006..0.039 rows=40 loops=1)
+        Index Cond: (user_id = '1'::bigint)
+        Heap Fetches: 80
+        Buffers: shared hit=82
+Planning Time: 0.022 ms
+Execution Time: 0.049 ms
+
+Statement 3
+SELECT user_anime.user_id, user_anime.anime_id, user_anime.status, user_anime.score, user_anime.episodes_watched, user_anime.created_at, user_anime.updated_at, anime.id, anime.anilist_id, anime.mal_id, anime.title_ru, anime.title_en, anime.kind, anime.status AS status_1, anime.episodes, anime.aired_on, anime.description, anime.poster_url, anime.synced_at
+FROM user_anime JOIN anime ON anime.id = user_anime.anime_id
+WHERE user_anime.user_id = $1::BIGINT ORDER BY user_anime.updated_at DESC, user_anime.anime_id DESC
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+Parameters: (1, 20, 0)
+Limit  (cost=94.57..94.62 rows=20 width=711) (actual time=0.120..0.123 rows=20 loops=1)
+  Buffers: shared hit=97
+  ->  Sort  (cost=94.57..94.66 rows=39 width=711) (actual time=0.120..0.121 rows=20 loops=1)
+        Sort Key: user_anime.updated_at DESC, user_anime.anime_id DESC
+        Sort Method: quicksort  Memory: 35kB
+        Buffers: shared hit=97
+        ->  Hash Join  (cost=74.21..93.53 rows=39 width=711) (actual time=0.042..0.102 rows=40 loops=1)
+              Hash Cond: (anime.id = user_anime.anime_id)
+              Buffers: shared hit=97
+              ->  Seq Scan on anime  (cost=0.00..18.00 rows=500 width=669) (actual time=0.002..0.032 rows=500 loops=1)
+                    Buffers: shared hit=13
+              ->  Hash  (cost=73.72..73.72 rows=39 width=42) (actual time=0.037..0.037 rows=40 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                    Buffers: shared hit=84
+                    ->  Index Scan Backward using user_anime_pkey on user_anime  (cost=0.29..73.72 rows=39 width=42) (actual time=0.003..0.033 rows=40 loops=1)
+                          Index Cond: (user_id = '1'::bigint)
+                          Buffers: shared hit=84
+Planning:
+  Buffers: shared hit=58
+Planning Time: 0.153 ms
+Execution Time: 0.135 ms
+
+=== activity/first ===
+Source: backend/app/services/library_service.py:228-262
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user1',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.010..0.011 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user1'::text)
+  Buffers: shared hit=3
+Planning Time: 0.035 ms
+Execution Time: 0.017 ms
+
+Statement 2
+SELECT user_activity.id, user_activity.created_at, user_activity.user_id, user_activity.type, user_activity.anime_id, user_activity.payload
+FROM user_activity
+WHERE user_activity.user_id = $1::BIGINT ORDER BY user_activity.created_at DESC, user_activity.id DESC
+ LIMIT $2::INTEGER
+Parameters: (1, 6)
+Limit  (cost=26.32..26.34 rows=6 width=77) (actual time=0.017..0.018 rows=6 loops=1)
+  Buffers: shared hit=3
+  ->  Sort  (cost=26.32..26.36 rows=15 width=77) (actual time=0.016..0.017 rows=6 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: top-N heapsort  Memory: 25kB
+        Buffers: shared hit=3
+        ->  Append  (cost=0.29..26.05 rows=15 width=77) (actual time=0.005..0.011 rows=14 loops=1)
+              Buffers: shared hit=3
+              ->  Index Scan using user_activity_p2026_11_user_id_created_at_idx on user_activity_p2026_11 user_activity_1  (cost=0.29..25.98 rows=11 width=80) (actual time=0.005..0.007 rows=14 loops=1)
+                    Index Cond: (user_id = '1'::bigint)
+                    Buffers: shared hit=3
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..0.00 rows=1 width=68) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+Planning:
+  Buffers: shared hit=55
+Planning Time: 0.154 ms
+Execution Time: 0.030 ms
+
+Statement 3
+SELECT anime.id, anime.anilist_id, anime.mal_id, anime.title_ru, anime.title_en, anime.kind, anime.status, anime.episodes, anime.aired_on, anime.description, anime.poster_url, anime.synced_at
+FROM anime
+WHERE anime.id IN ($1::BIGINT, $2::BIGINT, $3::BIGINT, $4::BIGINT, $5::BIGINT)
+Parameters: (320, 12, 177, 375, 381)
+Seq Scan on anime  (cost=0.00..21.12 rows=5 width=669) (actual time=0.004..0.045 rows=5 loops=1)
+  Filter: (id = ANY ('{320,12,177,375,381}'::bigint[]))
+  Rows Removed by Filter: 495
+  Buffers: shared hit=13
+Planning:
+  Buffers: shared hit=2
+Planning Time: 0.044 ms
+Execution Time: 0.049 ms
+
+=== activity/next ===
+Source: backend/app/services/library_service.py:228-262
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user1',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.005..0.006 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user1'::text)
+  Buffers: shared hit=3
+Planning Time: 0.025 ms
+Execution Time: 0.011 ms
+
+Statement 2
+SELECT user_activity.id, user_activity.created_at, user_activity.user_id, user_activity.type, user_activity.anime_id, user_activity.payload
+FROM user_activity
+WHERE user_activity.user_id = $1::BIGINT AND (user_activity.created_at, user_activity.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY user_activity.created_at DESC, user_activity.id DESC
+ LIMIT $4::INTEGER
+Parameters: (1, datetime.datetime(2026, 11, 13, 1, 29, 6, 704054, tzinfo=datetime.timezone.utc), 4, 6)
+Limit  (cost=17.40..17.42 rows=6 width=75) (actual time=0.018..0.019 rows=6 loops=1)
+  Buffers: shared hit=3
+  ->  Sort  (cost=17.40..17.43 rows=10 width=75) (actual time=0.018..0.018 rows=6 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 26kB
+        Buffers: shared hit=3
+        ->  Append  (cost=0.29..17.24 rows=10 width=75) (actual time=0.006..0.010 rows=9 loops=1)
+              Buffers: shared hit=3
+              ->  Index Scan using user_activity_p2026_11_user_id_created_at_idx on user_activity_p2026_11 user_activity_1  (cost=0.29..17.19 rows=6 width=80) (actual time=0.006..0.007 rows=9 loops=1)
+                    Index Cond: ((user_id = '1'::bigint) AND (created_at <= '2026-11-13 04:29:06.704054+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=3
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..0.00 rows=1 width=68) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+Planning:
+  Buffers: shared hit=17
+Planning Time: 0.128 ms
+Execution Time: 0.040 ms
+
+Statement 3
+SELECT anime.id, anime.anilist_id, anime.mal_id, anime.title_ru, anime.title_en, anime.kind, anime.status, anime.episodes, anime.aired_on, anime.description, anime.poster_url, anime.synced_at
+FROM anime
+WHERE anime.id IN ($1::BIGINT, $2::BIGINT, $3::BIGINT, $4::BIGINT, $5::BIGINT)
+Parameters: (64, 14, 15, 241, 24)
+Seq Scan on anime  (cost=0.00..21.12 rows=5 width=669) (actual time=0.005..0.042 rows=5 loops=1)
+  Filter: (id = ANY ('{64,14,15,241,24}'::bigint[]))
+  Rows Removed by Filter: 495
+  Buffers: shared hit=13
+Planning Time: 0.033 ms
+Execution Time: 0.046 ms
+
+=== reviews/first ===
+Source: backend/app/services/review_service.py:42-70
+
+Statement 1
+SELECT anime.id
+FROM anime
+WHERE anime.id = $1::BIGINT
+Parameters: (1,)
+Index Only Scan using anime_pkey on anime  (cost=0.27..8.29 rows=1 width=8) (actual time=0.007..0.007 rows=1 loops=1)
+  Index Cond: (id = '1'::bigint)
+  Heap Fetches: 1
+  Buffers: shared hit=3
+Planning Time: 0.030 ms
+Execution Time: 0.013 ms
+
+Statement 2
+SELECT count(*) AS count_1
+FROM reviews
+WHERE reviews.anime_id = $1::BIGINT
+Parameters: (1,)
+Aggregate  (cost=18.30..18.31 rows=1 width=8) (actual time=0.018..0.018 rows=1 loops=1)
+  Buffers: shared hit=11
+  ->  Bitmap Heap Scan on reviews  (cost=4.39..18.27 rows=15 width=0) (actual time=0.009..0.015 rows=15 loops=1)
+        Recheck Cond: (anime_id = '1'::bigint)
+        Heap Blocks: exact=9
+        Buffers: shared hit=11
+        ->  Bitmap Index Scan on reviews_anime_created_idx  (cost=0.00..4.39 rows=15 width=0) (actual time=0.006..0.006 rows=15 loops=1)
+              Index Cond: (anime_id = '1'::bigint)
+              Buffers: shared hit=2
+Planning Time: 0.032 ms
+Execution Time: 0.028 ms
+
+Statement 3
+SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.score, reviews.text, reviews.created_at, reviews.updated_at, users.username
+FROM reviews LEFT OUTER JOIN users ON users.id = reviews.user_id
+WHERE reviews.anime_id = $1::BIGINT ORDER BY reviews.created_at DESC, reviews.id DESC
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+Parameters: (1, 5, 0)
+Limit  (cost=51.34..51.35 rows=5 width=146) (actual time=0.153..0.154 rows=5 loops=1)
+  Buffers: shared hit=31
+  ->  Sort  (cost=51.34..51.38 rows=15 width=146) (actual time=0.152..0.153 rows=5 loops=1)
+        Sort Key: reviews.created_at DESC, reviews.id DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        Buffers: shared hit=31
+        ->  Hash Right Join  (cost=18.45..51.09 rows=15 width=146) (actual time=0.038..0.143 rows=15 loops=1)
+              Hash Cond: (users.id = reviews.user_id)
+              Buffers: shared hit=31
+              ->  Seq Scan on users  (cost=0.00..30.00 rows=1000 width=15) (actual time=0.003..0.072 rows=1000 loops=1)
+                    Buffers: shared hit=20
+              ->  Hash  (cost=18.27..18.27 rows=15 width=139) (actual time=0.015..0.016 rows=15 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                    Buffers: shared hit=11
+                    ->  Bitmap Heap Scan on reviews  (cost=4.39..18.27 rows=15 width=139) (actual time=0.008..0.013 rows=15 loops=1)
+                          Recheck Cond: (anime_id = '1'::bigint)
+                          Heap Blocks: exact=9
+                          Buffers: shared hit=11
+                          ->  Bitmap Index Scan on reviews_anime_created_idx  (cost=0.00..4.39 rows=15 width=0) (actual time=0.005..0.005 rows=15 loops=1)
+                                Index Cond: (anime_id = '1'::bigint)
+                                Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=32
+Planning Time: 0.164 ms
+Execution Time: 0.227 ms
+
+=== reviews/page=2 ===
+Source: backend/app/services/review_service.py:42-70
+
+Statement 1
+SELECT anime.id
+FROM anime
+WHERE anime.id = $1::BIGINT
+Parameters: (1,)
+Index Only Scan using anime_pkey on anime  (cost=0.27..8.29 rows=1 width=8) (actual time=0.006..0.006 rows=1 loops=1)
+  Index Cond: (id = '1'::bigint)
+  Heap Fetches: 1
+  Buffers: shared hit=3
+Planning Time: 0.027 ms
+Execution Time: 0.011 ms
+
+Statement 2
+SELECT count(*) AS count_1
+FROM reviews
+WHERE reviews.anime_id = $1::BIGINT
+Parameters: (1,)
+Aggregate  (cost=18.30..18.31 rows=1 width=8) (actual time=0.015..0.016 rows=1 loops=1)
+  Buffers: shared hit=11
+  ->  Bitmap Heap Scan on reviews  (cost=4.39..18.27 rows=15 width=0) (actual time=0.008..0.013 rows=15 loops=1)
+        Recheck Cond: (anime_id = '1'::bigint)
+        Heap Blocks: exact=9
+        Buffers: shared hit=11
+        ->  Bitmap Index Scan on reviews_anime_created_idx  (cost=0.00..4.39 rows=15 width=0) (actual time=0.005..0.005 rows=15 loops=1)
+              Index Cond: (anime_id = '1'::bigint)
+              Buffers: shared hit=2
+Planning Time: 0.032 ms
+Execution Time: 0.026 ms
+
+Statement 3
+SELECT reviews.id, reviews.user_id, reviews.anime_id, reviews.score, reviews.text, reviews.created_at, reviews.updated_at, users.username
+FROM reviews LEFT OUTER JOIN users ON users.id = reviews.user_id
+WHERE reviews.anime_id = $1::BIGINT ORDER BY reviews.created_at DESC, reviews.id DESC
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+Parameters: (1, 5, 5)
+Limit  (cost=51.40..51.41 rows=5 width=146) (actual time=0.124..0.125 rows=5 loops=1)
+  Buffers: shared hit=31
+  ->  Sort  (cost=51.38..51.42 rows=15 width=146) (actual time=0.123..0.124 rows=10 loops=1)
+        Sort Key: reviews.created_at DESC, reviews.id DESC
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=31
+        ->  Hash Right Join  (cost=18.45..51.09 rows=15 width=146) (actual time=0.026..0.117 rows=15 loops=1)
+              Hash Cond: (users.id = reviews.user_id)
+              Buffers: shared hit=31
+              ->  Seq Scan on users  (cost=0.00..30.00 rows=1000 width=15) (actual time=0.002..0.060 rows=1000 loops=1)
+                    Buffers: shared hit=20
+              ->  Hash  (cost=18.27..18.27 rows=15 width=139) (actual time=0.010..0.010 rows=15 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                    Buffers: shared hit=11
+                    ->  Bitmap Heap Scan on reviews  (cost=4.39..18.27 rows=15 width=139) (actual time=0.004..0.008 rows=15 loops=1)
+                          Recheck Cond: (anime_id = '1'::bigint)
+                          Heap Blocks: exact=9
+                          Buffers: shared hit=11
+                          ->  Bitmap Index Scan on reviews_anime_created_idx  (cost=0.00..4.39 rows=15 width=0) (actual time=0.003..0.003 rows=15 loops=1)
+                                Index Cond: (anime_id = '1'::bigint)
+                                Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=12
+Planning Time: 0.101 ms
+Execution Time: 0.135 ms
+
+=== topics/global ===
+Source: backend/app/services/community_service.py:42-70
+
+Statement 1
+SELECT count(*) AS count_1
+FROM topics
+Parameters: ()
+Aggregate  (cost=27.00..27.01 rows=1 width=8) (actual time=0.025..0.025 rows=1 loops=1)
+  Buffers: shared hit=26
+  ->  Seq Scan on topics  (cost=0.00..26.80 rows=80 width=0) (actual time=0.004..0.020 rows=80 loops=1)
+        Buffers: shared hit=26
+Planning Time: 0.033 ms
+Execution Time: 0.035 ms
+
+Statement 2
+SELECT topics.id, topics.author_id, topics.anime_id, topics.title, topics.body, topics.comments_count, topics.created_at, topics.last_comment_at, users.username
+FROM topics LEFT OUTER JOIN users ON users.id = topics.author_id ORDER BY topics.last_comment_at DESC, topics.id DESC
+ LIMIT $1::INTEGER OFFSET $2::INTEGER
+Parameters: (20, 0)
+Limit  (cost=3.34..61.78 rows=20 width=144) (actual time=0.045..0.048 rows=20 loops=1)
+  Buffers: shared hit=108
+  ->  Incremental Sort  (cost=3.34..237.11 rows=80 width=144) (actual time=0.045..0.046 rows=20 loops=1)
+        Sort Key: topics.last_comment_at DESC, topics.id DESC
+        Presorted Key: topics.last_comment_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 30kB  Peak Memory: 30kB
+        Buffers: shared hit=108
+        ->  Nested Loop Left Join  (cost=0.42..233.51 rows=80 width=144) (actual time=0.008..0.038 rows=21 loops=1)
+              Buffers: shared hit=108
+              ->  Index Scan using topics_last_comment_idx on topics  (cost=0.14..110.11 rows=80 width=137) (actual time=0.004..0.012 rows=21 loops=1)
+                    Buffers: shared hit=45
+              ->  Index Scan using users_pkey on users  (cost=0.28..1.54 rows=1 width=15) (actual time=0.001..0.001 rows=1 loops=21)
+                    Index Cond: (id = topics.author_id)
+                    Buffers: shared hit=63
+Planning:
+  Buffers: shared hit=22
+Planning Time: 0.116 ms
+Execution Time: 0.058 ms
+
+=== topics/anime=10 ===
+Source: backend/app/services/community_service.py:42-70
+
+Statement 1
+SELECT count(*) AS count_1
+FROM topics
+WHERE topics.anime_id = $1::BIGINT
+Parameters: (10,)
+Aggregate  (cost=8.29..8.30 rows=1 width=8) (actual time=0.008..0.008 rows=1 loops=1)
+  Buffers: shared hit=3
+  ->  Index Only Scan using topics_anime_last_comment_idx on topics  (cost=0.27..8.29 rows=1 width=0) (actual time=0.005..0.006 rows=1 loops=1)
+        Index Cond: (anime_id = '10'::bigint)
+        Heap Fetches: 1
+        Buffers: shared hit=3
+Planning Time: 0.024 ms
+Execution Time: 0.016 ms
+
+Statement 2
+SELECT topics.id, topics.author_id, topics.anime_id, topics.title, topics.body, topics.comments_count, topics.created_at, topics.last_comment_at, users.username
+FROM topics LEFT OUTER JOIN users ON users.id = topics.author_id
+WHERE topics.anime_id = $1::BIGINT ORDER BY topics.last_comment_at DESC, topics.id DESC
+ LIMIT $2::INTEGER OFFSET $3::INTEGER
+Parameters: (10, 20, 0)
+Limit  (cost=16.60..16.65 rows=2 width=144) (actual time=0.009..0.009 rows=1 loops=1)
+  Buffers: shared hit=6
+  ->  Incremental Sort  (cost=16.60..16.65 rows=2 width=144) (actual time=0.008..0.009 rows=1 loops=1)
+        Sort Key: topics.last_comment_at DESC, topics.id DESC
+        Presorted Key: topics.last_comment_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=6
+        ->  Nested Loop Left Join  (cost=0.54..16.59 rows=1 width=144) (actual time=0.005..0.006 rows=1 loops=1)
+              Buffers: shared hit=6
+              ->  Index Scan using topics_anime_last_comment_idx on topics  (cost=0.27..8.29 rows=1 width=137) (actual time=0.002..0.003 rows=1 loops=1)
+                    Index Cond: (anime_id = '10'::bigint)
+                    Buffers: shared hit=3
+              ->  Index Scan using users_pkey on users  (cost=0.28..8.29 rows=1 width=15) (actual time=0.001..0.001 rows=1 loops=1)
+                    Index Cond: (id = topics.author_id)
+                    Buffers: shared hit=3
+Planning:
+  Buffers: shared hit=7
+Planning Time: 0.090 ms
+Execution Time: 0.019 ms
+
+=== comments/first ===
+Source: backend/app/services/community_service.py:96-131
+
+Statement 1
+SELECT topics.id AS topics_id, topics.author_id AS topics_author_id, topics.anime_id AS topics_anime_id, topics.title AS topics_title, topics.body AS topics_body, topics.comments_count AS topics_comments_count, topics.created_at AS topics_created_at, topics.last_comment_at AS topics_last_comment_at
+FROM topics
+WHERE topics.id = $1::BIGINT
+Parameters: (61,)
+Index Scan using topics_pkey on topics  (cost=0.14..8.16 rows=1 width=137) (actual time=0.006..0.006 rows=1 loops=1)
+  Index Cond: (id = '61'::bigint)
+  Buffers: shared hit=2
+Planning Time: 0.031 ms
+Execution Time: 0.013 ms
+
+Statement 2
+SELECT comments.id, comments.created_at, comments.topic_id, comments.author_id, comments.parent_id, comments.body
+FROM comments
+WHERE comments.topic_id = $1::BIGINT ORDER BY comments.created_at DESC, comments.id DESC
+ LIMIT $2::INTEGER
+Parameters: (61, 6)
+Limit  (cost=2.64..14.96 rows=6 width=82) (actual time=0.015..0.016 rows=6 loops=1)
+  Buffers: shared hit=9
+  ->  Incremental Sort  (cost=2.64..66.31 rows=31 width=82) (actual time=0.014..0.015 rows=6 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Presorted Key: comments.created_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=9
+        ->  Merge Append  (cost=0.55..64.92 rows=31 width=82) (actual time=0.007..0.010 rows=7 loops=1)
+              Sort Key: comments.created_at DESC
+              Buffers: shared hit=9
+              ->  Index Scan Backward using comments_p2026_topic_id_created_at_idx on comments_p2026 comments_1  (cost=0.28..48.21 rows=29 width=83) (actual time=0.005..0.007 rows=7 loops=1)
+                    Index Cond: (topic_id = '61'::bigint)
+                    Buffers: shared hit=5
+              ->  Index Scan Backward using comments_p2027_topic_id_created_at_idx on comments_p2027 comments_2  (cost=0.12..8.14 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: (topic_id = '61'::bigint)
+                    Buffers: shared hit=2
+              ->  Index Scan Backward using comments_default_topic_id_created_at_idx on comments_default comments_3  (cost=0.12..8.14 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: (topic_id = '61'::bigint)
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=41
+Planning Time: 0.143 ms
+Execution Time: 0.027 ms
+
+Statement 3
+SELECT users.id, users.username
+FROM users
+WHERE users.id IN ($1::BIGINT, $2::BIGINT, $3::BIGINT, $4::BIGINT, $5::BIGINT)
+Parameters: (390, 370, 53, 470, 537)
+Index Scan using users_pkey on users  (cost=0.28..21.46 rows=5 width=15) (actual time=0.007..0.012 rows=5 loops=1)
+  Index Cond: (id = ANY ('{390,370,53,470,537}'::bigint[]))
+  Buffers: shared hit=14
+Planning Time: 0.025 ms
+Execution Time: 0.016 ms
+
+=== comments/next ===
+Source: backend/app/services/community_service.py:96-131
+
+Statement 1
+SELECT topics.id AS topics_id, topics.author_id AS topics_author_id, topics.anime_id AS topics_anime_id, topics.title AS topics_title, topics.body AS topics_body, topics.comments_count AS topics_comments_count, topics.created_at AS topics_created_at, topics.last_comment_at AS topics_last_comment_at
+FROM topics
+WHERE topics.id = $1::BIGINT
+Parameters: (61,)
+Index Scan using topics_pkey on topics  (cost=0.14..8.16 rows=1 width=137) (actual time=0.005..0.006 rows=1 loops=1)
+  Index Cond: (id = '61'::bigint)
+  Buffers: shared hit=2
+Planning Time: 0.029 ms
+Execution Time: 0.013 ms
+
+Statement 2
+SELECT comments.id, comments.created_at, comments.topic_id, comments.author_id, comments.parent_id, comments.body
+FROM comments
+WHERE comments.topic_id = $1::BIGINT AND (comments.created_at, comments.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY comments.created_at DESC, comments.id DESC
+ LIMIT $4::INTEGER
+Parameters: (61, datetime.datetime(2026, 11, 17, 13, 56, 54, 664371, tzinfo=datetime.timezone.utc), 1121, 6)
+Limit  (cost=3.02..17.44 rows=6 width=82) (actual time=0.016..0.017 rows=6 loops=1)
+  Buffers: shared hit=10
+  ->  Incremental Sort  (cost=3.02..60.71 rows=24 width=82) (actual time=0.016..0.016 rows=6 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Presorted Key: comments.created_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=10
+        ->  Merge Append  (cost=0.55..59.63 rows=24 width=82) (actual time=0.010..0.013 rows=7 loops=1)
+              Sort Key: comments.created_at DESC
+              Buffers: shared hit=10
+              ->  Index Scan Backward using comments_p2026_topic_id_created_at_idx on comments_p2026 comments_1  (cost=0.28..42.99 rows=22 width=83) (actual time=0.008..0.010 rows=7 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=6
+              ->  Index Scan Backward using comments_p2027_topic_id_created_at_idx on comments_p2027 comments_2  (cost=0.12..8.15 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Buffers: shared hit=2
+              ->  Index Scan Backward using comments_default_topic_id_created_at_idx on comments_default comments_3  (cost=0.12..8.15 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=8
+Planning Time: 0.122 ms
+Execution Time: 0.031 ms
+
+Statement 3
+SELECT users.id, users.username
+FROM users
+WHERE users.id IN ($1::BIGINT, $2::BIGINT, $3::BIGINT, $4::BIGINT, $5::BIGINT)
+Parameters: (485, 199, 680, 745, 820)
+Index Scan using users_pkey on users  (cost=0.28..21.46 rows=5 width=15) (actual time=0.006..0.013 rows=5 loops=1)
+  Index Cond: (id = ANY ('{485,199,680,745,820}'::bigint[]))
+  Buffers: shared hit=15
+Planning Time: 0.025 ms
+Execution Time: 0.017 ms
+
+=== compatibility/user1-user2 ===
+Source: backend/app/services/library_service.py:265-301
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user2',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.009..0.010 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user2'::text)
+  Buffers: shared hit=3
+Planning Time: 0.035 ms
+Execution Time: 0.016 ms
+
+Statement 2
+SELECT user_anime_1.score, user_anime_2.score AS score_1
+FROM user_anime AS user_anime_1 JOIN user_anime AS user_anime_2 ON user_anime_2.anime_id = user_anime_1.anime_id
+WHERE user_anime_1.user_id = $1::BIGINT AND user_anime_2.user_id = $2::BIGINT AND user_anime_1.score IS NOT NULL AND user_anime_2.score IS NOT NULL
+Parameters: (1, 2)
+Merge Join  (cost=0.58..147.56 rows=1 width=4) (actual time=0.047..0.047 rows=0 loops=1)
+  Merge Cond: (user_anime_1.anime_id = user_anime_2.anime_id)
+  Buffers: shared hit=153
+  ->  Index Scan using user_anime_pkey on user_anime user_anime_1  (cost=0.29..73.72 rows=20 width=10) (actual time=0.005..0.035 rows=16 loops=1)
+        Index Cond: (user_id = '1'::bigint)
+        Filter: (score IS NOT NULL)
+        Rows Removed by Filter: 24
+        Buffers: shared hit=83
+  ->  Index Scan using user_anime_pkey on user_anime user_anime_2  (cost=0.29..73.72 rows=20 width=10) (actual time=0.003..0.010 rows=18 loops=1)
+        Index Cond: (user_id = '2'::bigint)
+        Filter: (score IS NOT NULL)
+        Rows Removed by Filter: 16
+        Buffers: shared hit=70
+Planning:
+  Buffers: shared hit=46
+Planning Time: 0.137 ms
+Execution Time: 0.061 ms
+
+=== compatibility/self ===
+Source: backend/app/services/library_service.py:265-301
+
+Statement 1
+SELECT users.id, users.username, users.email, users.password_hash, users.avatar_url, users.bio, users.created_at
+FROM users
+WHERE lower(users.username) = $1::VARCHAR
+Parameters: ('user1',)
+Index Scan using users_username_lower_key on users  (cost=0.28..8.29 rows=1 width=680) (actual time=0.005..0.006 rows=1 loops=1)
+  Index Cond: (lower((username)::text) = 'user1'::text)
+  Buffers: shared hit=3
+Planning Time: 0.024 ms
+Execution Time: 0.011 ms
+
+Statement 2
+SELECT user_anime_1.score, user_anime_2.score AS score_1
+FROM user_anime AS user_anime_1 JOIN user_anime AS user_anime_2 ON user_anime_2.anime_id = user_anime_1.anime_id
+WHERE user_anime_1.user_id = $1::BIGINT AND user_anime_2.user_id = $2::BIGINT AND user_anime_1.score IS NOT NULL AND user_anime_2.score IS NOT NULL
+Parameters: (1, 1)
+Merge Join  (cost=0.58..147.56 rows=1 width=4) (actual time=0.006..0.046 rows=16 loops=1)
+  Merge Cond: (user_anime_1.anime_id = user_anime_2.anime_id)
+  Buffers: shared hit=159
+  ->  Index Scan using user_anime_pkey on user_anime user_anime_1  (cost=0.29..73.72 rows=20 width=10) (actual time=0.003..0.033 rows=16 loops=1)
+        Index Cond: (user_id = '1'::bigint)
+        Filter: (score IS NOT NULL)
+        Rows Removed by Filter: 24
+        Buffers: shared hit=83
+  ->  Index Scan using user_anime_pkey on user_anime user_anime_2  (cost=0.29..73.72 rows=20 width=10) (actual time=0.002..0.009 rows=16 loops=1)
+        Index Cond: (user_id = '1'::bigint)
+        Filter: (score IS NOT NULL)
+        Rows Removed by Filter: 21
+        Buffers: shared hit=76
+Planning:
+  Buffers: shared hit=46
+Planning Time: 0.119 ms
+Execution Time: 0.073 ms

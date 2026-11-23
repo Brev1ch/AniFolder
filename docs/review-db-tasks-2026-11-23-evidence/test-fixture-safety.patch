@@ -1,0 +1,8 @@
+--- backend/tests/conftest.py
++++ safety-copy/tests/conftest.py
+@@ -67 +67 @@
+-        await connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DATABASE_NAME} WITH (FORCE)"))
++        await connection.execute(text("SELECT 1"))
+@@ -76 +76 @@
+-        await connection.execute(text(f"DROP DATABASE IF EXISTS {TEST_DATABASE_NAME} WITH (FORCE)"))
++        await connection.execute(text("SELECT 1"))

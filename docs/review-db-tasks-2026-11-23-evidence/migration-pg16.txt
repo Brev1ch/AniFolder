@@ -1,0 +1,25 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001, Начальная схема: пользователи, каталог, списки, отзывы, сообщество, рекомендации.
+ version_num
+-------------
+ 0001
+(1 row)
+
+ reviews_before_0002
+---------------------
+                 584
+(1 row)
+
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0001 -> 0002, Отзывы удалённых пользователей сохраняются: reviews.user_id NULL + SET NULL.
+ version_num
+-------------
+ 0002
+(1 row)
+
+ reviews_after_0002
+--------------------
+                584
+(1 row)

@@ -1,0 +1,112 @@
+
+=== activity / actual tuple cursor ===
+SELECT id, created_at, user_id, type, anime_id, payload FROM user_activity WHERE user_id=$1 AND (created_at,id)<($2,$3) ORDER BY created_at DESC,id DESC LIMIT 6
+parameters=(1, datetime.datetime(2026, 11, 13, 1, 29, 6, 704054, tzinfo=datetime.timezone.utc), 4)
+Limit  (cost=17.40..17.42 rows=6 width=75) (actual time=0.013..0.014 rows=6 loops=1)
+  Buffers: shared hit=3
+  ->  Sort  (cost=17.40..17.43 rows=10 width=75) (actual time=0.013..0.013 rows=6 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 26kB
+        Buffers: shared hit=3
+        ->  Append  (cost=0.29..17.24 rows=10 width=75) (actual time=0.006..0.010 rows=9 loops=1)
+              Buffers: shared hit=3
+              ->  Index Scan using user_activity_p2026_11_user_id_created_at_idx on user_activity_p2026_11 user_activity_1  (cost=0.29..17.19 rows=6 width=80) (actual time=0.006..0.008 rows=9 loops=1)
+                    Index Cond: ((user_id = '1'::bigint) AND (created_at <= '2026-11-13 04:29:06.704054+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=3
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..0.00 rows=1 width=68) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+Planning:
+  Buffers: shared hit=8
+Planning Time: 0.126 ms
+Execution Time: 0.032 ms
+
+=== activity / proposed redundant upper bound ===
+SELECT id, created_at, user_id, type, anime_id, payload FROM user_activity WHERE user_id=$1 AND (created_at,id)<($2,$3) AND created_at <= $2 ORDER BY created_at DESC,id DESC LIMIT 6
+parameters=(1, datetime.datetime(2026, 11, 13, 1, 29, 6, 704054, tzinfo=datetime.timezone.utc), 4)
+Limit  (cost=17.26..17.27 rows=4 width=77) (actual time=0.013..0.014 rows=6 loops=1)
+  Buffers: shared hit=3
+  ->  Sort  (cost=17.26..17.27 rows=4 width=77) (actual time=0.012..0.013 rows=6 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 26kB
+        Buffers: shared hit=3
+        ->  Append  (cost=0.29..17.22 rows=4 width=77) (actual time=0.006..0.009 rows=9 loops=1)
+              Buffers: shared hit=3
+              ->  Index Scan using user_activity_p2026_11_user_id_created_at_idx on user_activity_p2026_11 user_activity_1  (cost=0.29..17.20 rows=3 width=80) (actual time=0.006..0.008 rows=9 loops=1)
+                    Index Cond: ((user_id = '1'::bigint) AND (created_at <= '2026-11-13 04:29:06.704054+03'::timestamp with time zone) AND (created_at <= '2026-11-13 04:29:06.704054+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=3
+              ->  Seq Scan on user_activity_default user_activity_2  (cost=0.00..0.00 rows=1 width=68) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: ((created_at <= '2026-11-13 04:29:06.704054+03'::timestamp with time zone) AND (user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-13 04:29:06.704054+03'::timestamp with time zone, '4'::bigint)))
+Planning:
+  Buffers: shared hit=2
+Planning Time: 0.079 ms
+Execution Time: 0.024 ms
+PASS: identical page results (scalar <= retains same-time id tie semantics)
+
+=== comments / actual tuple cursor ===
+SELECT id,created_at,topic_id,author_id,parent_id,body FROM comments WHERE topic_id=$1 AND (created_at,id)<($2,$3) ORDER BY created_at DESC,id DESC LIMIT 6
+parameters=(61, datetime.datetime(2026, 11, 17, 13, 56, 54, 664371, tzinfo=datetime.timezone.utc), 1121)
+Limit  (cost=3.02..17.44 rows=6 width=82) (actual time=0.014..0.015 rows=6 loops=1)
+  Buffers: shared hit=10
+  ->  Incremental Sort  (cost=3.02..60.71 rows=24 width=82) (actual time=0.013..0.014 rows=6 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Presorted Key: comments.created_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=10
+        ->  Merge Append  (cost=0.55..59.63 rows=24 width=82) (actual time=0.008..0.011 rows=7 loops=1)
+              Sort Key: comments.created_at DESC
+              Buffers: shared hit=10
+              ->  Index Scan Backward using comments_p2026_topic_id_created_at_idx on comments_p2026 comments_1  (cost=0.28..42.99 rows=22 width=83) (actual time=0.006..0.008 rows=7 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=6
+              ->  Index Scan Backward using comments_p2027_topic_id_created_at_idx on comments_p2027 comments_2  (cost=0.12..8.15 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Buffers: shared hit=2
+              ->  Index Scan Backward using comments_default_topic_id_created_at_idx on comments_default comments_3  (cost=0.12..8.15 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=8
+Planning Time: 0.103 ms
+Execution Time: 0.027 ms
+
+=== comments / proposed redundant upper bound ===
+SELECT id,created_at,topic_id,author_id,parent_id,body FROM comments WHERE topic_id=$1 AND (created_at,id)<($2,$3) AND created_at <= $2 ORDER BY created_at DESC,id DESC LIMIT 6
+parameters=(61, datetime.datetime(2026, 11, 17, 13, 56, 54, 664371, tzinfo=datetime.timezone.utc), 1121)
+Limit  (cost=3.25..19.57 rows=6 width=82) (actual time=0.012..0.013 rows=6 loops=1)
+  Buffers: shared hit=8
+  ->  Incremental Sort  (cost=3.25..52.20 rows=18 width=82) (actual time=0.011..0.012 rows=6 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Presorted Key: comments.created_at
+        Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+        Buffers: shared hit=8
+        ->  Merge Append  (cost=0.41..51.39 rows=18 width=82) (actual time=0.007..0.009 rows=7 loops=1)
+              Sort Key: comments.created_at DESC
+              Buffers: shared hit=8
+              ->  Index Scan Backward using comments_p2026_topic_id_created_at_idx on comments_p2026 comments_1  (cost=0.28..43.05 rows=17 width=83) (actual time=0.005..0.007 rows=7 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Rows Removed by Filter: 1
+                    Buffers: shared hit=6
+              ->  Index Scan Backward using comments_default_topic_id_created_at_idx on comments_default comments_2  (cost=0.12..8.15 rows=1 width=72) (actual time=0.001..0.001 rows=0 loops=1)
+                    Index Cond: ((topic_id = '61'::bigint) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone) AND (created_at <= '2026-11-17 16:56:54.664371+03'::timestamp with time zone))
+                    Filter: (ROW(created_at, id) < ROW('2026-11-17 16:56:54.664371+03'::timestamp with time zone, '1121'::bigint))
+                    Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.083 ms
+Execution Time: 0.023 ms
+PASS: identical page results (scalar <= retains same-time id tie semantics)

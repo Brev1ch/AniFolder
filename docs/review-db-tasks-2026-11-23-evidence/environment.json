@@ -1,0 +1,30 @@
+{
+  "postgresql": "16.16",
+  "python": "3.14.4",
+  "source_commit": "db5ae5290eef50ded2dac07fe4d1c682311fdb09",
+  "dataset": "unmodified seed_dev.sql after migration 0002",
+  "settings": {
+    "random_page_cost": "4",
+    "enable_seqscan": "on",
+    "work_mem": "4MB"
+  },
+  "counts": {
+    "users": 1000,
+    "anime": 500,
+    "user_anime": 39435,
+    "user_activity": 11799,
+    "reviews": 584,
+    "topics": 80,
+    "comments": 1158
+  },
+  "partitions": [
+    {
+      "partition": "comments_p2026",
+      "rows": 1158
+    },
+    {
+      "partition": "user_activity_p2026_11",
+      "rows": 11799
+    }
+  ]
+}

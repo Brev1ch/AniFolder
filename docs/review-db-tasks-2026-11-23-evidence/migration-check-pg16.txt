@@ -1,0 +1,14 @@
+ version_num
+-------------
+ 0002
+(1 row)
+
+ user_id_not_null | fk_delete_action
+------------------+------------------
+ f                | n
+(1 row)
+
+BEGIN
+psql:docs/review-db-tasks-2026-11-23-evidence/migration-check.sql:17: NOTICE:  PASS: 0002 author deletion preserves review and existing rows
+DO
+ROLLBACK

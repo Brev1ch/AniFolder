@@ -1,0 +1,44 @@
+list/status=completed/page=1 SQL count= 3
+  1 Index Scan users_username_lower_key time_ms= 0.019
+  2 Index Only Scan user_anime_user_status_idx time_ms= 0.021
+  3 Sort; Seq Scan; Index Scan user_anime_user_status_idx time_ms= 0.09
+list/all-statuses/page=1 SQL count= 3
+  1 Index Scan users_username_lower_key time_ms= 0.008
+  2 Index Only Scan user_anime_pkey time_ms= 0.046
+  3 Sort; Seq Scan; Index Scan user_anime_pkey time_ms= 0.128
+activity/first SQL count= 3
+  1 Index Scan users_username_lower_key time_ms= 0.014
+  2 Sort; Index Scan user_activity_p2026_11_user_id_created_at_idx; Seq Scan; Seq Scan; Seq Scan; Seq Scan time_ms= 0.03
+  3 Seq Scan time_ms= 0.048
+activity/next SQL count= 3
+  1 Index Scan users_username_lower_key time_ms= 0.009
+  2 Sort; Index Scan user_activity_p2026_11_user_id_created_at_idx; Seq Scan; Seq Scan; Seq Scan; Seq Scan time_ms= 0.035
+  3 Seq Scan time_ms= 0.044
+reviews/first SQL count= 3
+  1 Index Only Scan anime_pkey time_ms= 0.012
+  2 Bitmap Heap Scan; Bitmap Index Scan reviews_anime_created_idx time_ms= 0.032
+  3 Sort; Seq Scan; Bitmap Heap Scan; Bitmap Index Scan reviews_anime_created_idx time_ms= 0.145
+reviews/page=2 SQL count= 3
+  1 Index Only Scan anime_pkey time_ms= 0.007
+  2 Bitmap Heap Scan; Bitmap Index Scan reviews_anime_created_idx time_ms= 0.022
+  3 Sort; Seq Scan; Bitmap Heap Scan; Bitmap Index Scan reviews_anime_created_idx time_ms= 0.129
+topics/global SQL count= 2
+  1 Seq Scan time_ms= 0.022
+  2 Incremental Sort; Index Scan topics_last_comment_idx; Index Scan users_pkey time_ms= 0.05
+topics/anime=10 SQL count= 2
+  1 Index Only Scan topics_anime_last_comment_idx time_ms= 0.012
+  2 Incremental Sort; Index Scan topics_anime_last_comment_idx; Index Scan users_pkey time_ms= 0.019
+comments/first SQL count= 3
+  1 Index Scan topics_pkey time_ms= 0.01
+  2 Incremental Sort; Merge Append; Index Scan comments_p2026_topic_id_created_at_idx; Index Scan comments_p2027_topic_id_created_at_idx; Index Scan comments_default_topic_id_created_at_idx time_ms= 0.025
+  3 Index Scan users_pkey time_ms= 0.013
+comments/next SQL count= 3
+  1 Index Scan topics_pkey time_ms= 0.011
+  2 Incremental Sort; Merge Append; Index Scan comments_p2026_topic_id_created_at_idx; Index Scan comments_p2027_topic_id_created_at_idx; Index Scan comments_default_topic_id_created_at_idx time_ms= 0.028
+  3 Index Scan users_pkey time_ms= 0.009
+compatibility/user1-user2 SQL count= 2
+  1 Index Scan users_username_lower_key time_ms= 0.009
+  2 Index Scan user_anime_pkey; Index Scan user_anime_pkey time_ms= 0.053
+compatibility/self SQL count= 2
+  1 Index Scan users_username_lower_key time_ms= 0.007
+  2 Index Scan user_anime_pkey; Index Scan user_anime_pkey time_ms= 0.074

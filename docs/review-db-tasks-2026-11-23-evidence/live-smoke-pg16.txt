@@ -1,0 +1,24 @@
+PASS GET /api/v1/users/user1/list 200
+PASS GET /api/v1/users/user1/activity 200
+PASS GET /api/v1/users/user1/activity 200
+PASS GET /api/v1/anime/1/reviews 200
+PASS GET /api/v1/anime/1/reviews 200
+PASS GET /api/v1/topics 200
+PASS GET /api/v1/topics 200
+PASS GET /api/v1/topics/61/comments 200
+PASS GET /api/v1/topics/61/comments 200
+PASS POST /api/v1/auth/register 201
+PASS PUT /api/v1/me/list/1 200
+PASS PUT /api/v1/me/list/4 200
+PASS PUT /api/v1/me/list/6 200
+PASS PUT /api/v1/me/list/19 200
+PASS PUT /api/v1/me/list/41 200
+PASS GET /api/v1/users/user1/compatibility 200
+PASS GET /api/v1/users/smoke_2f2ce793/compatibility 200
+PASS POST /api/v1/anime/1/reviews 201
+PASS POST /api/v1/topics 201
+PASS POST /api/v1/topics/83/comments 201
+PASS GET /api/v1/anime/1/reviews 200
+PASS GET /api/v1/topics/83/comments 200
+PASS migration 0002: deleted author review survives via live API; NULL author + deleted_user
+PASS cursor pages do not overlap; compatibility threshold/self checked
