@@ -102,7 +102,12 @@ async def list_comments(
     stmt = select(Comment).where(Comment.topic_id == topic_id)
     if cursor is not None:
         cursor_created, cursor_id = decode_cursor(cursor)
-        stmt = stmt.where(tuple_(Comment.created_at, Comment.id) < (cursor_created, cursor_id))
+        stmt = stmt.where(
+            # Скалярная граница позволяет planner исключить будущие партиции.
+            # Равные timestamp не отсекаем: их разделяет id в tuple-условии.
+            Comment.created_at <= cursor_created,
+            tuple_(Comment.created_at, Comment.id) < (cursor_created, cursor_id),
+        )
     rows = list((await session.scalars(
         stmt.order_by(Comment.created_at.desc(), Comment.id.desc()).limit(limit + 1)
     )).all())

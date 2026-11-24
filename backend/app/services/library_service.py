@@ -235,7 +235,10 @@ async def get_activity(
     if cursor is not None:
         cursor_created, cursor_id = decode_cursor(cursor)
         stmt = stmt.where(
-            tuple_(UserActivity.created_at, UserActivity.id) < (cursor_created, cursor_id)
+            # Явная граница по ключу партиционирования отсекает будущие партиции.
+            # <= сохраняет записи с тем же временем; их порядок задаёт tuple ниже.
+            UserActivity.created_at <= cursor_created,
+            tuple_(UserActivity.created_at, UserActivity.id) < (cursor_created, cursor_id),
         )
     rows = list((await session.scalars(
         stmt.order_by(UserActivity.created_at.desc(), UserActivity.id.desc()).limit(limit + 1)

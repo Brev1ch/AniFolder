@@ -1,0 +1,109 @@
+{
+  "postgresql": "16.16",
+  "settings": {
+    "enable_seqscan": "on",
+    "random_page_cost": "4"
+  },
+  "activity": {
+    "owner": 1,
+    "boundary": "2026-11-30 21:00:00+00:00",
+    "rows": [
+      {
+        "id": 8,
+        "created_at": "2026-11-30 21:00:01+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-11-30 21:00:01+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-11-30 21:00:01+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 7,
+        "created_at": "2026-11-30 21:00:00+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-11-30 21:00:00+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 1,
+        "created_at": "2026-11-30 21:00:00+00:00",
+        "partition": "user_activity_p2026_12"
+      },
+      {
+        "id": 9,
+        "created_at": "2026-11-30 20:59:59.999999+00:00",
+        "partition": "user_activity_p2026_11"
+      },
+      {
+        "id": 6,
+        "created_at": "2026-11-30 20:59:59.999999+00:00",
+        "partition": "user_activity_p2026_11"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-11-30 20:59:59.999999+00:00",
+        "partition": "user_activity_p2026_11"
+      }
+    ]
+  },
+  "comments": {
+    "owner": 1,
+    "boundary": "2026-12-31 21:00:00+00:00",
+    "rows": [
+      {
+        "id": 8,
+        "created_at": "2026-12-31 21:00:01+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 5,
+        "created_at": "2026-12-31 21:00:01+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 2,
+        "created_at": "2026-12-31 21:00:01+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 7,
+        "created_at": "2026-12-31 21:00:00+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 4,
+        "created_at": "2026-12-31 21:00:00+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 1,
+        "created_at": "2026-12-31 21:00:00+00:00",
+        "partition": "comments_p2027"
+      },
+      {
+        "id": 9,
+        "created_at": "2026-12-31 20:59:59.999999+00:00",
+        "partition": "comments_p2026"
+      },
+      {
+        "id": 6,
+        "created_at": "2026-12-31 20:59:59.999999+00:00",
+        "partition": "comments_p2026"
+      },
+      {
+        "id": 3,
+        "created_at": "2026-12-31 20:59:59.999999+00:00",
+        "partition": "comments_p2026"
+      }
+    ]
+  }
+}

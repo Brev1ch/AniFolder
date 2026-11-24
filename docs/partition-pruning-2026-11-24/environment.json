@@ -1,0 +1,22 @@
+{
+  "base_commit": "a8a8615ca74a3f28d7f94d5292c5a4397d0af85e",
+  "postgresql": "16.16",
+  "python": "3.14.4",
+  "pr15": {
+    "number": 15,
+    "state": "OPEN",
+    "merged": false,
+    "head": "f2eb361c8d979f63d6a28c1a73345313ec136c96"
+  },
+  "tests": {
+    "related": 61,
+    "full": 118,
+    "new_regression_cases": 8,
+    "baseline_expected_failures": 2
+  },
+  "dataset": "9 synthetic rows per endpoint, 3 equal-timestamp groups, 2 non-default partitions per endpoint",
+  "planner_settings": {
+    "enable_seqscan": "on",
+    "random_page_cost": "4"
+  }
+}

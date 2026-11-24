@@ -1,0 +1,180 @@
+
+=== before / activity / first ===
+SELECT user_activity.id, user_activity.created_at, user_activity.user_id, user_activity.type, user_activity.anime_id, user_activity.payload
+FROM user_activity
+WHERE user_activity.user_id = $1::BIGINT ORDER BY user_activity.created_at DESC, user_activity.id DESC
+ LIMIT $2::INTEGER
+Parameters: (1, 6)
+Limit  (cost=2.39..2.40 rows=6 width=48) (actual time=0.015..0.017 rows=6 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.39..2.42 rows=12 width=48) (actual time=0.015..0.015 rows=6 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.17 rows=12 width=48) (actual time=0.004..0.010 rows=9 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on user_activity_p2026_11 user_activity_1  (cost=0.00..1.04 rows=3 width=41) (actual time=0.004..0.005 rows=3 loops=1)
+                    Filter: (user_id = '1'::bigint)
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..1.07 rows=6 width=41) (actual time=0.002..0.003 rows=6 loops=1)
+                    Filter: (user_id = '1'::bigint)
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (user_id = '1'::bigint)
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.115 ms
+Execution Time: 0.031 ms
+
+=== before / activity / boundary-tie ===
+SELECT user_activity.id, user_activity.created_at, user_activity.user_id, user_activity.type, user_activity.anime_id, user_activity.payload
+FROM user_activity
+WHERE user_activity.user_id = $1::BIGINT AND (user_activity.created_at, user_activity.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY user_activity.created_at DESC, user_activity.id DESC
+ LIMIT $4::INTEGER
+Parameters: (1, datetime.datetime(2026, 11, 30, 21, 0, tzinfo=datetime.timezone.utc), 4, 6)
+Limit  (cost=2.29..2.31 rows=6 width=53) (actual time=0.009..0.010 rows=4 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.29..2.31 rows=7 width=53) (actual time=0.009..0.009 rows=4 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.19 rows=7 width=53) (actual time=0.003..0.007 rows=4 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on user_activity_p2026_11 user_activity_1  (cost=0.00..1.05 rows=3 width=41) (actual time=0.003..0.003 rows=3 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..1.10 rows=1 width=41) (actual time=0.001..0.002 rows=1 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+                    Rows Removed by Filter: 5
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.101 ms
+Execution Time: 0.025 ms
+
+=== before / activity / older-partition ===
+SELECT user_activity.id, user_activity.created_at, user_activity.user_id, user_activity.type, user_activity.anime_id, user_activity.payload
+FROM user_activity
+WHERE user_activity.user_id = $1::BIGINT AND (user_activity.created_at, user_activity.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY user_activity.created_at DESC, user_activity.id DESC
+ LIMIT $4::INTEGER
+Parameters: (1, datetime.datetime(2026, 11, 30, 20, 59, 59, 999999, tzinfo=datetime.timezone.utc), 6, 6)
+Limit  (cost=2.24..2.25 rows=5 width=57) (actual time=0.009..0.010 rows=1 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.24..2.25 rows=5 width=57) (actual time=0.009..0.009 rows=1 loops=1)
+        Sort Key: user_activity.created_at DESC, user_activity.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.18 rows=5 width=57) (actual time=0.004..0.007 rows=1 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on user_activity_p2026_11 user_activity_1  (cost=0.00..1.05 rows=1 width=41) (actual time=0.003..0.004 rows=1 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-30 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+                    Rows Removed by Filter: 2
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2026_12 user_activity_2  (cost=0.00..1.10 rows=1 width=41) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-30 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+                    Rows Removed by Filter: 6
+                    Buffers: shared hit=1
+              ->  Seq Scan on user_activity_p2027_01 user_activity_3  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-30 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+              ->  Seq Scan on user_activity_p2027_02 user_activity_4  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-30 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+              ->  Seq Scan on user_activity_default user_activity_5  (cost=0.00..0.00 rows=1 width=68) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((user_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-11-30 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+Planning:
+  Buffers: shared hit=6
+Planning Time: 0.108 ms
+Execution Time: 0.023 ms
+
+=== before / comments / first ===
+SELECT comments.id, comments.created_at, comments.topic_id, comments.author_id, comments.parent_id, comments.body
+FROM comments
+WHERE comments.topic_id = $1::BIGINT ORDER BY comments.created_at DESC, comments.id DESC
+ LIMIT $2::INTEGER
+Parameters: (1, 6)
+Limit  (cost=2.33..2.34 rows=6 width=59) (actual time=0.014..0.016 rows=6 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.33..2.35 rows=10 width=59) (actual time=0.014..0.015 rows=6 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.16 rows=10 width=59) (actual time=0.004..0.009 rows=9 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on comments_p2026 comments_1  (cost=0.00..1.04 rows=3 width=58) (actual time=0.004..0.005 rows=3 loops=1)
+                    Filter: (topic_id = '1'::bigint)
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_p2027 comments_2  (cost=0.00..1.07 rows=6 width=58) (actual time=0.002..0.003 rows=6 loops=1)
+                    Filter: (topic_id = '1'::bigint)
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_default comments_3  (cost=0.00..0.00 rows=1 width=72) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: (topic_id = '1'::bigint)
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.111 ms
+Execution Time: 0.027 ms
+
+=== before / comments / boundary-tie ===
+SELECT comments.id, comments.created_at, comments.topic_id, comments.author_id, comments.parent_id, comments.body
+FROM comments
+WHERE comments.topic_id = $1::BIGINT AND (comments.created_at, comments.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY comments.created_at DESC, comments.id DESC
+ LIMIT $4::INTEGER
+Parameters: (1, datetime.datetime(2026, 12, 31, 21, 0, tzinfo=datetime.timezone.utc), 4, 6)
+Limit  (cost=2.24..2.25 rows=5 width=61) (actual time=0.016..0.017 rows=4 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.24..2.25 rows=5 width=61) (actual time=0.016..0.016 rows=4 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.18 rows=5 width=61) (actual time=0.003..0.007 rows=4 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on comments_p2026 comments_1  (cost=0.00..1.05 rows=3 width=58) (actual time=0.003..0.004 rows=3 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2027-01-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_p2027 comments_2  (cost=0.00..1.10 rows=1 width=58) (actual time=0.001..0.002 rows=1 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2027-01-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+                    Rows Removed by Filter: 5
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_default comments_3  (cost=0.00..0.00 rows=1 width=72) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2027-01-01 00:00:00+03'::timestamp with time zone, '4'::bigint)))
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.107 ms
+Execution Time: 0.027 ms
+
+=== before / comments / older-partition ===
+SELECT comments.id, comments.created_at, comments.topic_id, comments.author_id, comments.parent_id, comments.body
+FROM comments
+WHERE comments.topic_id = $1::BIGINT AND (comments.created_at, comments.id) < ($2::TIMESTAMP WITH TIME ZONE, $3::BIGINT) ORDER BY comments.created_at DESC, comments.id DESC
+ LIMIT $4::INTEGER
+Parameters: (1, datetime.datetime(2026, 12, 31, 20, 59, 59, 999999, tzinfo=datetime.timezone.utc), 6, 6)
+Limit  (cost=2.20..2.20 rows=3 width=63) (actual time=0.015..0.016 rows=1 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=2.20..2.20 rows=3 width=63) (actual time=0.015..0.016 rows=1 loops=1)
+        Sort Key: comments.created_at DESC, comments.id DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Append  (cost=0.00..2.17 rows=3 width=63) (actual time=0.004..0.006 rows=1 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on comments_p2026 comments_1  (cost=0.00..1.05 rows=1 width=58) (actual time=0.003..0.004 rows=1 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-31 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+                    Rows Removed by Filter: 2
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_p2027 comments_2  (cost=0.00..1.10 rows=1 width=58) (actual time=0.001..0.001 rows=0 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-31 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+                    Rows Removed by Filter: 6
+                    Buffers: shared hit=1
+              ->  Seq Scan on comments_default comments_3  (cost=0.00..0.00 rows=1 width=72) (actual time=0.000..0.000 rows=0 loops=1)
+                    Filter: ((topic_id = '1'::bigint) AND (ROW(created_at, id) < ROW('2026-12-31 23:59:59.999999+03'::timestamp with time zone, '6'::bigint)))
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.108 ms
+Execution Time: 0.026 ms

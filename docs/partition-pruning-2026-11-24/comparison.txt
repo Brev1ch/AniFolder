@@ -1,0 +1,24 @@
+activity / first
+  identical IDs: [8, 5, 2, 7, 4]; identical next_cursor: true
+  relations: 5 -> 5
+  excluded: []
+activity / boundary-tie
+  identical IDs: [1, 9, 6, 3]; identical next_cursor: true
+  relations: 5 -> 3
+  excluded: ['user_activity_p2027_01', 'user_activity_p2027_02']
+activity / older-partition
+  identical IDs: [3]; identical next_cursor: true
+  relations: 5 -> 2
+  excluded: ['user_activity_p2026_12', 'user_activity_p2027_01', 'user_activity_p2027_02']
+comments / first
+  identical IDs: [8, 5, 2, 7, 4]; identical next_cursor: true
+  relations: 3 -> 3
+  excluded: []
+comments / boundary-tie
+  identical IDs: [1, 9, 6, 3]; identical next_cursor: true
+  relations: 3 -> 3
+  excluded: []
+comments / older-partition
+  identical IDs: [3]; identical next_cursor: true
+  relations: 3 -> 2
+  excluded: ['comments_p2027']
